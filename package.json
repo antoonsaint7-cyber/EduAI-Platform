@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node server.js",
     "worker": "node worker.js",
-    "test": "node --check server.js && node --check worker.js && node --check src/platform/auth.js && node --check src/platform/db.js && node --check src/platform/queue.js && node --check src/platform/grounding.js && node evals/educational-engine.test.mjs && node evals/phase4.test.mjs && node evals/platform.test.mjs"
+    "test": "node --check server.js && node --check worker.js && node --check src/platform/auth.js && node --check src/platform/db.js && node --check src/platform/queue.js && node --check src/platform/grounding.js && node evals/educational-engine.test.mjs && node evals/phase4.test.mjs",
+    "test:integration": "node evals/platform.test.mjs"
   },
   "engines": { "node": ">=20" },
   "dependencies": {
