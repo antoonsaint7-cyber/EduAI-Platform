@@ -3,6 +3,7 @@ on:
   pull_request:
   push:
     branches: [main]
+
 jobs:
   unit:
     runs-on: ubuntu-latest
@@ -12,12 +13,31 @@ jobs:
         with: { node-version: 20, cache: npm }
       - run: npm install
       - run: npm test
+
   browser:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: voice_ai_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd="pg_isready -U postgres -d voice_ai_test"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/voice_ai_test
+      SESSION_SECRET: ci-only-session-secret-change-me
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 20, cache: npm }
       - run: npm install
+      - run: node -e "require('./src/platform/db').migrate().then(()=>process.exit(0)).catch(e=>{console.error(e);process.exit(1)})"
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
