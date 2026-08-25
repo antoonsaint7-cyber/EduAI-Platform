@@ -1,14 +1,17 @@
 {
   "name": "voice-ai-assistant",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "private": true,
-  "description": "Arabic AI educational platform with curriculum ingestion, evaluation and teacher review.",
+  "description": "Commercial Arabic AI educational platform with curriculum ingestion, adaptive learning and production integrations.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "worker": "node worker.js",
-    "test": "node --check server.js && node --check worker.js && node --check src/platform/auth.js && node --check src/platform/db.js && node --check src/platform/queue.js && node --check src/platform/grounding.js && node evals/educational-engine.test.mjs && node evals/phase4.test.mjs",
-    "test:integration": "node evals/platform.test.mjs"
+    "test": "node --check server.js && node --check worker.js && node --check src/platform/mfa.js && node --check src/platform/payments.js && node --check src/platform/email.js && node --check src/platform/realtime.js && node --check src/platform/multimodal.js && node --check src/platform/telemetry.js && node evals/educational-engine.test.mjs && node evals/phase4.test.mjs && node evals/production-integrations.test.mjs",
+    "test:integration": "node evals/platform.test.mjs",
+    "test:e2e": "npx playwright test",
+    "backup": "bash scripts/backup.sh",
+    "restore": "bash scripts/restore.sh"
   },
   "engines": { "node": ">=20" },
   "dependencies": {
