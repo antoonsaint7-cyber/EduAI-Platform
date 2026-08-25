@@ -1,0 +1,97 @@
+name: Agent Feature -> Branch -> PR
+
+on:
+  workflow_dispatch:
+    inputs:
+      feature_name:
+        description: 'Short feature name, for example: pdf-upload'
+        required: true
+        type: string
+      task:
+        description: 'Complete implementation request for Codex'
+        required: true
+        type: string
+      draft:
+        description: 'Open the PR as a draft'
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: agent-feature-${{ github.ref }}-${{ inputs.feature_name }}
+  cancel-in-progress: false
+
+jobs:
+  agent:
+    if: github.actor == 'antoonsaint7-cyber'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Create isolated feature branch
+        id: branch
+        env:
+          FEATURE_NAME: ${{ inputs.feature_name }}
+        run: |
+          set -euo pipefail
+          SAFE_NAME=$(printf '%s' "$FEATURE_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9._-]/-/g' | sed 's/--*/-/g' | sed 's/^-//; s/-$//')
+          test -n "$SAFE_NAME"
+          BRANCH="feature/$SAFE_NAME"
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+            echo "Branch $BRANCH already exists. Choose another feature name." >&2
+            exit 1
+          fi
+          git switch -c "$BRANCH"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: Install dependencies for preflight
+        run: npm ci
+
+      - name: Preflight checks
+        run: |
+          node --check server.js
+          npm test --if-present
+
+      # Codex is deliberately the final step. It is allowed to modify the isolated
+      # feature branch, commit, push it, and open the PR. main is never checked out
+      # for writing and should also be protected by repository rules.
+      - name: Run Codex feature agent
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          permission-profile: ':danger-full-access'
+          safety-strategy: drop-sudo
+          prompt: |
+            You are the feature implementation agent for this repository.
+
+            Repository: ${{ github.repository }}
+            Base branch: main
+            Current feature branch: ${{ steps.branch.outputs.branch }}
+            Feature name: ${{ inputs.feature_name }}
+
+            TASK:
+            ${{ inputs.task }}
+
+            Mandatory workflow:
+            1. Read AGENTS.md, .github/AGENT_WORKFLOW.md, docs/ARCHITECTURE.md and relevant testing docs.
+            2. Inspect the existing implementation before editing.
+            3. Work ONLY on the current feature branch. Never checkout, reset, force-push, or write to main.
+            4. Implement the requested feature with the smallest coherent change.
+            5. Add/update tests and relevant AI evals.
+            6. Run syntax/lint/tests/evals that apply. Fix failures before proceeding.
+            7. Review the final diff for secrets, unrelated changes, regressions, and security issues.
+            8. Commit the completed work with a focused conventional commit.
+            9. Push the current feature branch to origin.
+            10. Open a DRAFT pull request from the current feature branch into main using the GitHub CLI. Include: summary, tests/evals, security impact, known limitations, and follow-ups.
+            11. Do NOT merge the PR and do NOT deploy production.
+
+            If implementation cannot be completed safely, do not create a misleading PR. Explain the blocker in the final message.
