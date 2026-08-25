@@ -16,26 +16,15 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Node
-        uses: actions/setup-node@v7
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version: 20
           cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Syntax check
-        run: node --check server.js
-
-      - name: Offline educational evals
-        run: node evals/run-evals.mjs
-
-      - name: Run project tests
-        run: npm test --if-present
-
-      - name: Security audit
-        run: npm audit --audit-level=high
+      - run: npm install
+      - run: npm test
+      - run: npm run test:integration
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - run: npm run evals
+      - run: npm audit --audit-level=high

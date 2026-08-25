@@ -1,187 +1,171 @@
 # EduAI Platform 🎓🤖
 
-منصة تعليمية تجارية مبنية بالذكاء الاصطناعي، تحول المنهج الدراسي من محتوى خام إلى تجربة تعليمية متكاملة للمدرس والطالب.
+Commercial AI-powered educational platform starter for teachers, schools, and education businesses.
 
-> **هذا المشروع يُباع كـ Source Code / Commercial Software.** لا يحتوي على مفاتيح API أو بيانات إنتاج حقيقية. المشتري يستخدم credentials والبنية التحتية الخاصة به وفق شروط الترخيص.
+EduAI turns curriculum source material into a controlled workflow for analysis, lesson generation, teacher review, publishing, student assessment, and progress tracking.
 
-## 🚀 Educational Engine
+## Educational Engine
 
 ```text
-Upload Curriculum
-       ↓
-Analyze
-       ↓
-Generate
-       ↓
-Evaluate
-       ↓
-Teacher Review
-       ↓
-Publish
-       ↓
-Student Learning
-       ↓
-Assessment
-       ↓
-Mastery / Adaptive Learning
+Upload Curriculum → Analyze → Generate → Evaluate → Teacher Review
+                                      ↓
+Student Learning → Assessment → Progress / Mastery
 ```
 
-## ✨ المزايا
+## What is implemented
 
-### 🧠 AI Educational Engine
-- تحليل المناهج والمصادر.
-- توليد الدروس والمحتوى.
-- Grounding للمحتوى بالمصدر.
-- Evaluation قبل النشر.
-- Teacher approval workflow.
-- أساس للتعلم التكيفي وMastery.
+| Area | Status |
+|---|---|
+| Curriculum storage and AI analysis | ✅ Implemented |
+| AI lesson generation + teacher review | ✅ Implemented |
+| Teacher / student roles | ✅ Implemented |
+| PostgreSQL persistence | ✅ Implemented |
+| Authentication + signed sessions | ✅ Implemented |
+| MFA / TOTP enrollment and verification | ✅ Implemented |
+| Tenant isolation at query boundary | ✅ Implemented |
+| Assessments + student attempts | ✅ Implemented |
+| Progress tracking | ✅ Implemented |
+| Stripe subscription checkout + signed webhooks | ✅ Implemented |
+| S3 object storage integration | ✅ Implemented |
+| Realtime voice ephemeral-token endpoint | ✅ Implemented |
+| Background worker foundation | ✅ Implemented |
+| Integration tests | ✅ Implemented |
+| Playwright E2E | ✅ Implemented |
+| CI + dependency audit | ✅ Implemented |
+| Docker + PostgreSQL production topology | ✅ Implemented |
+| Commercial license | ✅ Included |
 
-### 👨‍🏫 Teacher / 👨‍🎓 Student
-- بنية للمدرس والطالب.
-- نشر المحتوى بعد المراجعة.
-- اختبارات وتقييم.
-- تتبع تقدم الطلاب.
-- Multi-tenant foundation للمدارس والمؤسسات.
+## Architecture
 
-### 🤖 AI Integrations
-- OpenAI integration.
-- Multimodal tutoring foundation.
-- Realtime Voice foundation.
-- AI usage controls وproduction configuration.
+```text
+Teacher / Student Browser
+          ↓
+      Express API
+          ├── Auth / MFA
+          ├── Tenant isolation
+          ├── Curriculum Engine
+          ├── Lessons / Assessments
+          ├── AI / Realtime
+          ├── Billing
+          └── Storage
+          ↓
+ PostgreSQL + S3 + OpenAI + Stripe
+          ↓
+      Background Worker
+```
 
-### 🔐 Commercial Platform
-- Email verification / password reset foundation.
-- MFA / TOTP.
-- Payments + signed webhook verification.
-- S3 production storage integration.
-- Tenant-isolation tests.
-- Rate limiting وsecurity middleware.
+## Quick start
 
-### 🧪 Engineering & Operations
-- GitHub Actions CI.
-- Unit / evaluation tests.
-- Integration tests.
-- Browser E2E باستخدام Playwright.
-- Security/dependency checks.
-- Backup / restore tooling.
-- OpenTelemetry foundation.
-- Staging / Production release gates.
-- Release وrollback runbook.
-
-## 🛠️ التشغيل محليًا
-
-المتطلبات:
-
-- Node.js 20+
-- PostgreSQL للمزايا التي تعتمد على قاعدة البيانات.
-- مفاتيح الخدمات المطلوبة للمزايا الخارجية.
+Requirements: Node.js 20+ and PostgreSQL 16+.
 
 ```bash
+cp .env.example .env
 npm install
+```
+
+Apply the database schema:
+
+```bash
+psql "$DATABASE_URL" -f infra/schema.sql
+```
+
+Run the app:
+
+```bash
 npm start
 ```
 
-ثم افتح:
-
-```text
-http://localhost:3000
-```
-
-للمهام الخلفية:
+Run the worker separately:
 
 ```bash
 npm run worker
 ```
 
-## ⚙️ Environment Variables
+Open `http://localhost:3000`.
 
-استخدم `.env` محليًا أو Secret Manager في Staging/Production.
+### Docker
 
-```env
-NODE_ENV=development
-PORT=3000
-DATABASE_URL=postgresql://user:password@localhost:5432/eduai
-OPENAI_API_KEY=your_key
-OPENAI_MODEL=gpt-5-mini
-STRIPE_SECRET_KEY=your_key
-STRIPE_WEBHOOK_SECRET=your_webhook_secret
-S3_BUCKET=your_bucket
-S3_REGION=your_region
-OTEL_EXPORTER_OTLP_ENDPOINT=optional_endpoint
+```bash
+export AUTH_SECRET="replace-with-a-long-random-secret"
+export OPENAI_API_KEY="your_key"
+docker compose up --build
 ```
 
-**لا تضع أي secrets داخل Git.**
+## API highlights
 
-## 🧪 الاختبارات
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `POST /api/auth/mfa/enroll`
+- `POST /api/curricula`
+- `POST /api/curricula/:id/analyze`
+- `POST /api/curricula/:id/lessons`
+- `POST /api/lessons/:id/review`
+- `POST /api/assessments`
+- `POST /api/assessments/:id/attempts`
+- `GET /api/progress`
+- `POST /api/ai/chat`
+- `POST /api/realtime/token`
+- `POST /api/storage/upload`
+- `POST /api/billing/checkout`
+- `POST /api/billing/webhook`
+- `GET /health`
+
+## Testing
 
 ```bash
 npm test
 npm run test:integration
 npm run test:e2e
+npm run evals
+npm audit --audit-level=high
 ```
 
-## 🏗️ Staging / Production
+## Security
 
-قبل الإطلاق:
+- Secrets are environment variables, never committed.
+- Passwords use Node.js `scrypt` hashing.
+- Signed, expiring application sessions.
+- MFA/TOTP support.
+- Request size validation and rate limiting.
+- Tenant IDs are enforced server-side.
+- Stripe webhooks use signature verification.
+- S3 objects use server-side encryption.
+- Security headers are enabled by default.
 
-```text
-CI Green
-  ↓
-Staging Smoke + E2E
-  ↓
-Tenant Isolation
-  ↓
-Auth / MFA
-  ↓
-Payment Webhooks
-  ↓
-AI / Multimodal / Voice
-  ↓
-Backup + Restore Drill
-  ↓
-Monitoring + Alerts
-  ↓
-Load / Security Review
-  ↓
-Production
-```
+For production, rotate `AUTH_SECRET`, use a managed PostgreSQL instance, private S3 buckets, HTTPS, centralized logs/alerts, backups, restore drills, and a customer-specific privacy/compliance review.
 
-راجع `ops/RELEASE_RUNBOOK.md` قبل تسليم أي إصدار.
+## What the buyer provides
 
-## 💳 المنتج عند البيع
+- OpenAI credentials and usage budget.
+- Stripe account and price IDs.
+- AWS/S3 account if storage is enabled.
+- PostgreSQL infrastructure.
+- Email provider if transactional email is added.
+- Hosting, domain, monitoring, backups, and production secrets.
 
-النسخة الحالية مهيأة للبيع كـ **Source Code / Commercial Software Starter**، وليست اشتراك SaaS جاهزًا للمستخدم النهائي.
+No production credentials or real user data are included.
 
-المشتري يحصل على الكود والوثائق والإعدادات حسب الترخيص، ويستخدم مفاتيحه وخدماته وبنيته التحتية الخاصة.
+## Commercial licensing
 
-### السعر المقترح
+This project is sold as **commercial source code**. See [`LICENSE.md`](LICENSE.md) for the baseline commercial license.
 
-- Launch: **$499**
-- بعد إثبات المنتج ومراجعات العملاء: **$799+**
-- White-label / custom deployment: تسعير منفصل حسب نطاق العمل.
+Suggested pricing:
 
-## 🔒 Security
+- Launch: **$499/year**
+- Professional: **$799+/year**
+- White-label / enterprise deployment: custom pricing
 
-لا تُضمّن في المستودع:
+The license controls deployment and redistribution rights. Third-party services remain subject to their own terms.
 
-- OpenAI API keys
-- Stripe secrets
-- AWS credentials
-- Email provider credentials
-- Production database credentials
-- بيانات مستخدم حقيقية
+## Release checklist
 
-استخدم Environment Variables أو Secret Manager.
-
-## 📄 License
-
-الإصدار التجاري يجب أن يتضمن **Commercial License** واضحة تحدد الاستخدام وإعادة التوزيع وإعادة البيع وأي حدود مرتبطة بالمستخدمين أو المؤسسات.
-
-## 📦 Release Checklist
-
-1. شغّل `npm test`.
-2. شغّل Integration وE2E.
-3. راجع `ops/RELEASE_RUNBOOK.md`.
-4. تأكد من عدم وجود secrets داخل Git.
-5. أنشئ release/tag واضحًا.
-6. سلّم Source Code + Documentation + License + `.env.example`.
+1. `npm test`
+2. `npm run test:integration`
+3. `npm run test:e2e`
+4. `npm run evals`
+5. `npm audit --audit-level=high`
+6. Configure production secrets through a secret manager.
+7. Run database backup + restore drill.
+8. Verify Stripe webhook signing.
+9. Verify tenant isolation and MFA.
+10. Review `docs/RELEASE_RUNBOOK.md` before production deployment.

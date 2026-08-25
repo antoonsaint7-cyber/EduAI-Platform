@@ -1,0 +1,44 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: eduai
+      POSTGRES_PASSWORD: eduai
+      POSTGRES_DB: eduai
+    ports: ["5432:5432"]
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eduai -d eduai"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  app:
+    build: .
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://eduai:eduai@db:5432/eduai
+      AUTH_SECRET: ${AUTH_SECRET}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5.6-luna}
+      REALTIME_MODEL: ${REALTIME_MODEL:-gpt-realtime-2.1-mini}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      S3_BUCKET: ${S3_BUCKET}
+      S3_REGION: ${S3_REGION:-us-east-1}
+    ports: ["3000:3000"]
+    depends_on:
+      db:
+        condition: service_healthy
+  worker:
+    build: .
+    command: ["node","worker.js"]
+    environment:
+      DATABASE_URL: postgresql://eduai:eduai@db:5432/eduai
+    depends_on:
+      db:
+        condition: service_healthy
+volumes:
+  postgres_data:
