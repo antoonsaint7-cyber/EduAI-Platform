@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+process.env.AUTH_SECRET ||= 'test-secret-at-least-32-characters-long';
+const { migrate, query } = require('../src/platform/db');
+const { register, login, encodeToken } = require('../src/platform/auth');
+await migrate();
+const email = `ci-${crypto.randomUUID()}@example.test`;
+const user = await register({ email, password: 'secure-password-123', role: 'teacher' });
+assert.equal(user.role, 'teacher');
+const session = await login({ email, password: 'secure-password-123' });
+assert.equal(session.user.id, user.id);
+assert.ok(session.token.includes('.'));
+const count = await query('SELECT count(*)::int AS count FROM users WHERE id=$1', [user.id]);
+assert.equal(count.rows[0].count, 1);
+console.log('Platform persistence/auth evals passed');
