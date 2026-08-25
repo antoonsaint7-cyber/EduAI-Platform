@@ -3,29 +3,46 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#10182b">
   <title>مساعد صوتي ذكي</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
   <main class="shell">
     <section class="card">
-      <div class="badge">VOICE AI</div>
-      <h1>مساعدك الصوتي 🎙️</h1>
-      <p class="subtitle">اضغط على الميكروفون، اتكلم، وسيحوّل كلامك إلى سؤال للمساعد.</p>
+      <header class="topbar">
+        <div>
+          <div class="badge">VOICE AI</div>
+          <h1>مساعدك الصوتي 🎙️</h1>
+          <p class="subtitle">اتكلم أو اكتب، والمساعد هيفهم سياق المحادثة ويرد عليك بصوت.</p>
+        </div>
+        <button id="theme" class="icon-btn" aria-label="تغيير المظهر">☀️</button>
+      </header>
+
+      <div class="quick-prompts">
+        <button data-prompt="اشرح لي فكرة بطريقة بسيطة">اشرح لي ببساطة</button>
+        <button data-prompt="لخص لي أهم النقاط">لخص</button>
+        <button data-prompt="اديني 3 أفكار عملية ومبتكرة">أفكار</button>
+      </div>
 
       <button id="mic" class="mic" aria-label="ابدأ التسجيل">🎙️</button>
       <p id="status">جاهز للاستماع</p>
 
-      <div class="conversation">
-        <div class="bubble user"><strong>أنت</strong><span id="userText">...</span></div>
-        <div class="bubble assistant"><strong>المساعد</strong><span id="assistantText">...</span></div>
+      <div id="messages" class="messages" aria-live="polite"></div>
+
+      <div class="latest">
+        <div class="bubble user"><strong>آخر سؤال</strong><span id="userText">...</span></div>
+        <div class="bubble assistant"><strong>آخر إجابة</strong><span id="assistantText">...</span></div>
       </div>
 
+      <textarea id="input" maxlength="2000" placeholder="اكتب رسالتك هنا... واضغط Enter للإرسال"></textarea>
+      <div class="composer-meta"><span id="charCount">0 / 2000</span><span>Shift + Enter لسطر جديد</span></div>
+
       <div class="row">
-        <button id="send" class="send">إرسال النص</button>
-        <button id="clear" class="secondary">مسح</button>
+        <button id="send" class="send">إرسال ↵</button>
+        <button id="stop" class="secondary">إيقاف الصوت 🔇</button>
+        <button id="clear" class="secondary">محادثة جديدة</button>
       </div>
-      <textarea id="input" placeholder="أو اكتب رسالتك هنا..."></textarea>
     </section>
   </main>
   <script src="/app.js"></script>
