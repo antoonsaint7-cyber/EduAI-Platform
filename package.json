@@ -2,7 +2,6 @@
   "name": "voice-ai-assistant",
   "version": "1.5.0",
   "private": true,
-  "type": "module",
   "description": "Commercial Arabic AI educational platform with curriculum ingestion, adaptive learning and production integrations.",
   "main": "server.js",
   "scripts": {
@@ -23,5 +22,8 @@
     "multer": "^2.0.2",
     "openai": "^5.12.2",
     "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1"
   }
 }
