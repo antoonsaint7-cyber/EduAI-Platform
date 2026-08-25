@@ -24,15 +24,16 @@ jobs:
         with:
           node-version: 24
           cache: npm
+          cache-dependency-path: package.json
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install --no-audit --no-fund
 
       - name: Syntax check
-        run: node --check server.js
+        run: node --check server.js && node --check public/app.js && node --check public/education.js && node --check src/educational-engine/pipeline.js && node --check src/educational-engine/schema.js
 
-      - name: Offline educational evals
-        run: node evals/run-evals.mjs
+      - name: Offline educational engine evals
+        run: node evals/educational-engine.test.mjs
 
       - name: Run project tests
         run: npm test --if-present
