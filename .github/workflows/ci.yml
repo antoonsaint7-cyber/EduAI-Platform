@@ -32,7 +32,9 @@ jobs:
       - name: Database migration
         run: node -e "require('./src/platform/db').migrate().then(()=>console.log('migration ok')).catch(e=>{console.error(e);process.exit(1)})"
       - name: Educational evals
-        run: node evals/educational-engine.test.mjs && node evals/phase4.test.mjs && node evals/platform.test.mjs
+        run: node evals/educational-engine.test.mjs && node evals/phase4.test.mjs
+      - name: Platform integration evals
+        run: npm run test:integration
       - name: Project tests
         run: npm test --if-present
       - name: Security audit
