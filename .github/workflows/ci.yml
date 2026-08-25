@@ -28,7 +28,7 @@ jobs:
         with: { node-version: 24, cache: npm, cache-dependency-path: package.json }
       - run: npm install --no-audit --no-fund
       - name: Syntax check
-        run: node --check server.js && node --check worker.js && node --check public/app.js && node --check public/education.js && node --check src/platform/auth.js && node --check src/platform/db.js && node --check src/platform/queue.js && node --check src/platform/grounding.js
+        run: node --check server.js && node --check worker.js && node --check public/app.js && node --check public/education.js && node --check src/platform/auth.js && node --check src/platform/db.js && node --check src/platform/queue.js && node --check src/platform/grounding.js && node --check src/educational-engine/schema.js && node --check src/educational-engine/pipeline.js
       - name: Database migration
         run: node -e "require('./src/platform/db').migrate().then(()=>console.log('migration ok')).catch(e=>{console.error(e);process.exit(1)})"
       - name: Educational evals
