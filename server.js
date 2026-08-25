@@ -79,12 +79,16 @@ app.post('/api/education/curriculum/upload', upload.single('curriculum'), async 
 
     const file = await client.files.create({
       file: fs.createReadStream(req.file.path),
-      purpose: 'assistants'
+      purpose: 'user_data'
     });
     const vectorStore = await client.vectorStores.create({
       name: `curriculum-${crypto.randomUUID()}`
     });
-    await client.vectorStores.files.create(vectorStore.id, { file_id: file.id });
+    const vectorFile = await client.vectorStores.files.create(vectorStore.id, {
+      file_id: file.id,
+      attributes: { subject, grade, curriculum_title: title }
+    });
+    await waitForVectorFile(vectorStore.id, vectorFile.id);
 
     const jobId = crypto.randomUUID();
     curriculumJobs.set(jobId, {
@@ -95,6 +99,7 @@ app.post('/api/education/curriculum/upload', upload.single('curriculum'), async 
       grade,
       sourceFileId: file.id,
       vectorStoreId: vectorStore.id,
+      vectorFileId: vectorFile.id,
       createdAt: new Date().toISOString()
     });
 
@@ -102,11 +107,21 @@ app.post('/api/education/curriculum/upload', upload.single('curriculum'), async 
     res.status(202).json({ jobId, status: curriculumJobs.get(jobId).status });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'تعذر معالجة المنهج.' });
+    res.status(500).json({ error: error.message === 'Vector ingestion failed' ? 'فشل تجهيز الملف للبحث.' : 'تعذر معالجة المنهج.' });
   } finally {
     if (tempPath) fs.promises.unlink(tempPath).catch(() => {});
   }
 });
+
+async function waitForVectorFile(vectorStoreId, vectorFileId) {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const item = await client.vectorStores.files.retrieve(vectorFileId, { vector_store_id: vectorStoreId });
+    if (item.status === 'completed') return item;
+    if (item.status === 'failed' || item.status === 'cancelled') throw new Error('Vector ingestion failed');
+    await new Promise(resolve => setTimeout(resolve, 1500));
+  }
+  throw new Error('Vector ingestion failed');
+}
 
 async function analyzeCurriculum(jobId) {
   const job = curriculumJobs.get(jobId);
@@ -116,7 +131,8 @@ async function analyzeCurriculum(jobId) {
       model: process.env.OPENAI_MODEL || 'gpt-5-mini',
       instructions: 'أنت محلل مناهج. استخدم فقط محتوى ملف المنهج المسترجع. استخرج الهيكل التعليمي دون اختراع معلومات. أعد JSON مطابقًا للمخطط المطلوب.',
       input: `حلل منهج ${job.subject} للصف ${job.grade} بعنوان ${job.title}. حدد الوحدات والدروس وأهداف التعلم والمفاهيم المهمة.`,
-      tools: [{ type: 'file_search', vector_store_ids: [job.vectorStoreId] }],
+      tools: [{ type: 'file_search', vector_store_ids: [job.vectorStoreId], max_num_results: 20 }],
+      include: ['file_search_call.results'],
       text: {
         format: {
           type: 'json_schema',
@@ -159,6 +175,7 @@ async function analyzeCurriculum(jobId) {
 
     const analysis = JSON.parse(response.output_text || '{"units":[]}');
     job.analysis = analysis;
+    job.sourceEvidence = response.output?.filter(item => item.type === 'file_search_call') || [];
     job.status = 'analyzed';
     job.updatedAt = new Date().toISOString();
     curriculumJobs.set(jobId, job);
@@ -173,8 +190,8 @@ async function analyzeCurriculum(jobId) {
 app.get('/api/education/curriculum/:jobId', (req, res) => {
   const job = curriculumJobs.get(req.params.jobId);
   if (!job) return res.status(404).json({ error: 'المنهج غير موجود.' });
-  const { sourceFileId, vectorStoreId, ...safeJob } = job;
-  res.json(safeJob);
+  const { sourceFileId, vectorStoreId, vectorFileId, sourceEvidence, ...safeJob } = job;
+  res.json({ ...safeJob, evidenceAvailable: Boolean(sourceEvidence?.length) });
 });
 
 app.post('/api/education/curriculum/:jobId/generate', async (req, res) => {
@@ -188,7 +205,8 @@ app.post('/api/education/curriculum/:jobId/generate', async (req, res) => {
       model: process.env.OPENAI_MODEL || 'gpt-5-mini',
       instructions: 'أنت مؤلف محتوى تعليمي. استخدم فقط المادة المسترجعة من المنهج. أنشئ شرحًا مبسطًا وملخصًا وأمثلة وأسئلة مع الالتزام بالمصدر وعدم اختراع حقائق.',
       input: `أنشئ مسودة تعليمية للوحدات التالية: ${JSON.stringify(job.analysis)}`,
-      tools: [{ type: 'file_search', vector_store_ids: [job.vectorStoreId] }],
+      tools: [{ type: 'file_search', vector_store_ids: [job.vectorStoreId], max_num_results: 20 }],
+      include: ['file_search_call.results'],
       text: {
         format: {
           type: 'json_schema',
@@ -233,6 +251,7 @@ app.post('/api/education/curriculum/:jobId/generate', async (req, res) => {
     });
 
     job.generated = JSON.parse(response.output_text || '{"lessons":[]}');
+    job.generatedEvidence = response.output?.filter(item => item.type === 'file_search_call') || [];
     job.status = 'generated';
     job.evaluation = evaluateGenerated(job);
     curriculumJobs.set(job.jobId, job);
@@ -247,6 +266,7 @@ function evaluateGenerated(job) {
   const issues = [];
   const lessons = job.generated?.lessons || [];
   if (!lessons.length) issues.push('لم يتم توليد أي درس.');
+  if (!job.generatedEvidence?.length) issues.push('لم يظهر دليل على استخدام File Search.');
   for (const lesson of lessons) {
     if (!lesson.title || !lesson.summary || !lesson.explanation) issues.push(`محتوى ناقص في: ${lesson.title || 'درس غير مسمى'}`);
     if (!Array.isArray(lesson.questions) || lesson.questions.length < 3) issues.push(`عدد أسئلة غير كافٍ في: ${lesson.title || 'درس غير مسمى'}`);
