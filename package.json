@@ -2,6 +2,7 @@
   "name": "voice-ai-assistant",
   "version": "1.5.0",
   "private": true,
+  "type": "module",
   "description": "Commercial Arabic AI educational platform with curriculum ingestion, adaptive learning and production integrations.",
   "main": "server.js",
   "scripts": {
