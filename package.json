@@ -1,8 +1,8 @@
 {
   "name": "voice-ai-assistant",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
-  "description": "A simple browser voice assistant powered by OpenAI.",
+  "description": "Arabic voice AI assistant powered by OpenAI.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
