@@ -7,145 +7,28 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { query, migrate } = require('./src/platform/db');
-const { register, login, auth, requireRole } = require('./src/platform/auth');
+const { register, login, auth, requireRole, sessionCookie } = require('./src/platform/auth');
 const { enqueue, getJob } = require('./src/platform/queue');
 const { audit } = require('./src/platform/audit');
 const { put } = require('./src/platform/storage');
-
 const app = express();
 const port = Number(process.env.PORT || 3000);
 const client = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
-const maxFileSize = 15 * 1024 * 1024;
-const allowedTypes = new Set(['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain']);
-const upload = multer({ dest: path.join('/tmp', 'voice-ai-curriculum'), limits: { fileSize: maxFileSize }, fileFilter: (_req, file, cb) => cb(null, allowedTypes.has(file.mimetype)) });
-
-app.disable('x-powered-by');
-app.use(helmet());
-app.use(express.json({ limit: '1mb' }));
-app.use(express.static('public'));
-app.use('/api/', rateLimit({ windowMs: 60 * 1000, limit: Number(process.env.API_RATE_LIMIT || 60), standardHeaders: 'draft-8', legacyHeaders: false }));
-
-function requireClient(res) {
-  if (!client) { res.status(503).json({ error: 'خدمة الذكاء الاصطناعي غير مهيأة.' }); return false; }
-  return true;
-}
-function requireProductionConfig() {
-  if (process.env.NODE_ENV === 'production') {
-    for (const [name, value] of [['OPENAI_API_KEY', process.env.OPENAI_API_KEY], ['DATABASE_URL', process.env.DATABASE_URL], ['AUTH_SECRET', process.env.AUTH_SECRET]]) {
-      if (!value || (name === 'AUTH_SECRET' && value.length < 32)) throw new Error(`${name} is required in production`);
-    }
-  }
-}
-function idempotencyKey(req) { return req.get('Idempotency-Key')?.trim().slice(0, 200) || null; }
-
-app.post('/api/auth/register', async (req, res) => {
-  try {
-    const user = await register({ email: String(req.body?.email || ''), password: String(req.body?.password || ''), role: req.body?.role });
-    res.status(201).json({ user });
-  } catch (e) { res.status(400).json({ error: e.message === 'duplicate key value violates unique constraint "users_email_key"' ? 'البريد مستخدم بالفعل.' : 'تعذر إنشاء الحساب.' }); }
-});
-app.post('/api/auth/login', async (req, res) => {
-  try { res.json(await login({ email: String(req.body?.email || ''), password: String(req.body?.password || '') })); }
-  catch { res.status(401).json({ error: 'البريد أو كلمة المرور غير صحيحة.' }); }
-});
-
-app.post('/api/chat', auth(false), async (req, res) => {
-  try {
-    if (!requireClient(res)) return;
-    const message = typeof req.body?.message === 'string' ? req.body.message.trim() : '';
-    if (!message || message.length > 2000) return res.status(400).json({ error: 'الرسالة مطلوبة وبحد أقصى 2000 حرف.' });
-    const history = Array.isArray(req.body?.history) ? req.body.history.filter(x => ['user','assistant'].includes(x?.role) && typeof x?.content === 'string').slice(-12).map(x => ({ role: x.role, content: x.content.slice(0, 2000) })) : [];
-    const response = await client.responses.create({ model: process.env.OPENAI_MODEL || 'gpt-5-mini', instructions: 'أنت AI Tutor عربي. كن واضحًا ومفيدًا. لا تدّعِ أن معلومة من منهج إلا إذا استندت إلى مصدر قدمه المستخدم أو النظام.', input: [...history, { role: 'user', content: message }] });
-    res.json({ answer: response.output_text || 'لم أتمكن من توليد إجابة.' });
-  } catch (e) { console.error(e); res.status(500).json({ error: 'حدث خطأ أثناء معالجة الطلب.' }); }
-});
-
-app.post('/api/education/curriculum/upload', auth(true), requireRole('teacher','admin'), upload.single('curriculum'), async (req, res) => {
-  let tempPath = req.file?.path;
-  try {
-    if (!requireClient(res)) return;
-    if (!req.file) return res.status(400).json({ error: 'ارفع PDF أو DOCX أو TXT.' });
-    const subject = String(req.body?.subject || '').trim().slice(0, 100);
-    const grade = String(req.body?.grade || '').trim().slice(0, 100);
-    const title = String(req.body?.title || req.file.originalname).trim().slice(0, 200);
-    if (!subject || !grade) return res.status(400).json({ error: 'المادة والصف مطلوبان.' });
-    const key = idempotencyKey(req);
-    if (key) {
-      const prior = await query('SELECT response FROM idempotency_keys WHERE key=$1 AND user_id=$2', [key, req.user.sub]);
-      if (prior.rows[0]) return res.status(202).json(prior.rows[0].response);
-    }
-    const stored = await put(req.file.path, req.file.originalname);
-    const file = await client.files.create({ file: fs.createReadStream(req.file.path), purpose: 'user_data' });
-    const vectorStore = await client.vectorStores.create({ name: `curriculum-${crypto.randomUUID()}` });
-    const vectorFile = await client.vectorStores.files.create(vectorStore.id, { file_id: file.id, attributes: { subject, grade, curriculum_title: title, source_version: 'v1' } });
-    const versionId = crypto.randomUUID();
-    const curriculumId = crypto.randomUUID();
-    await query(`INSERT INTO curriculum_versions (id,curriculum_id,source_version,title,subject,grade,status,source_name,source_hash,source_file_id,vector_store_id,curriculum) VALUES ($1,$2,'v1',$3,$4,$5,'processing',$6,$7,$8,$9,'{}')`, [versionId, curriculumId, title, subject, grade, stored.name, crypto.createHash('sha256').update(fs.readFileSync(req.file.path)).digest('hex'), file.id, vectorStore.id]);
-    const jobId = await enqueue('ingest_curriculum', { versionId, curriculumId, title, subject, grade, vectorStoreId: vectorStore.id, vectorFileId: vectorFile.id, sourceFileId: file.id, storageId: stored.id });
-    const response = { jobId, versionId, status: 'queued' };
-    if (key) await query('INSERT INTO idempotency_keys (key,user_id,response) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING', [key, req.user.sub, response]);
-    await audit({ action: 'curriculum.upload', actorId: req.user.sub, actorRole: req.user.role, curriculumVersionId: versionId, metadata: { title, subject, grade } });
-    res.status(202).json(response);
-  } catch (e) { console.error(e); res.status(500).json({ error: 'تعذر بدء معالجة المنهج.' }); }
-  finally { if (tempPath) fs.promises.unlink(tempPath).catch(() => {}); }
-});
-
-app.get('/api/jobs/:jobId', auth(true), async (req, res) => {
-  try { const job = await getJob(req.params.jobId); if (!job) return res.status(404).json({ error: 'المهمة غير موجودة.' }); res.json({ id: job.id, status: job.status, error: job.error, result: job.result }); }
-  catch { res.status(500).json({ error: 'تعذر قراءة حالة المهمة.' }); }
-});
-
-app.get('/api/education/curriculum/:versionId', auth(true), async (req, res) => {
-  try {
-    const r = await query('SELECT id,curriculum_id,source_version,title,subject,grade,status,curriculum,evaluation,approved_by,published_at,created_at,updated_at FROM curriculum_versions WHERE id=$1', [req.params.versionId]);
-    const version = r.rows[0];
-    if (!version) return res.status(404).json({ error: 'المنهج غير موجود.' });
-    if (version.status !== 'published' && !['teacher','admin'].includes(req.user.role)) return res.status(403).json({ error: 'المحتوى غير منشور.' });
-    res.json(version);
-  } catch { res.status(500).json({ error: 'تعذر قراءة المنهج.' }); }
-});
-
-app.get('/api/education/review-queue', auth(true), requireRole('teacher','admin'), async (_req, res) => {
-  const r = await query("SELECT id,title,subject,grade,status,evaluation,created_at FROM curriculum_versions WHERE status IN ('awaiting-review','needs-review') ORDER BY created_at DESC");
-  res.json({ items: r.rows });
-});
-
-app.post('/api/education/curriculum/:versionId/publish', auth(true), requireRole('teacher','admin'), async (req, res) => {
-  try {
-    const version = (await query('SELECT * FROM curriculum_versions WHERE id=$1 FOR UPDATE', [req.params.versionId])).rows[0];
-    if (!version) return res.status(404).json({ error: 'المنهج غير موجود.' });
-    if (version.status !== 'awaiting-review' || version.evaluation?.status !== 'passed' || Number(version.evaluation?.score || 0) < Number(process.env.GROUNDING_THRESHOLD || 0.9)) return res.status(409).json({ error: 'المنهج لم يجتز التقييم أو لم يصل للمراجعة.' });
-    if (req.body?.approved !== true) return res.status(403).json({ error: 'الموافقة الصريحة مطلوبة.' });
-    await query("UPDATE curriculum_versions SET status='published',approved_by=$2,published_at=now(),updated_at=now() WHERE id=$1", [version.id, req.user.sub]);
-    await audit({ action: 'curriculum.publish', actorId: req.user.sub, actorRole: req.user.role, curriculumVersionId: version.id });
-    res.json({ status: 'published', versionId: version.id });
-  } catch (e) { console.error(e); res.status(500).json({ error: 'تعذر نشر المنهج.' }); }
-});
-
-app.post('/api/education/curriculum/:versionId/rollback', auth(true), requireRole('teacher','admin'), async (req, res) => {
-  try {
-    const target = (await query('SELECT * FROM curriculum_versions WHERE id=$1', [req.params.versionId])).rows[0];
-    if (!target || target.status === 'needs-review') return res.status(404).json({ error: 'النسخة غير صالحة للرجوع إليها.' });
-    const current = (await query("SELECT * FROM curriculum_versions WHERE curriculum_id=$1 AND status='published' ORDER BY published_at DESC LIMIT 1", [target.curriculum_id])).rows[0];
-    if (current) await query("UPDATE curriculum_versions SET status='draft',updated_at=now() WHERE id=$1", [current.id]);
-    await query("UPDATE curriculum_versions SET status='published',approved_by=$2,published_at=now(),updated_at=now() WHERE id=$1", [target.id, req.user.sub]);
-    await audit({ action: 'curriculum.rollback', actorId: req.user.sub, actorRole: req.user.role, curriculumVersionId: target.id, metadata: { previousVersionId: current?.id || null } });
-    res.json({ status: 'published', versionId: target.id });
-  } catch { res.status(500).json({ error: 'تعذر تنفيذ الرجوع.' }); }
-});
-
-app.get('/api/education/progress/:studentId', auth(true), async (req, res) => {
-  if (req.user.role === 'student' && req.user.sub !== req.params.studentId) return res.status(403).json({ error: 'غير مصرح.' });
-  const r = await query('SELECT * FROM student_progress WHERE student_id=$1 ORDER BY last_seen_at DESC NULLS LAST', [req.params.studentId]);
-  res.json({ items: r.rows });
-});
-
-app.get('/health', async (_req, res) => {
-  try { await query('SELECT 1'); res.json({ status: 'ok', database: 'ok', ai: Boolean(client) }); }
-  catch { res.status(503).json({ status: 'degraded', database: 'unavailable', ai: Boolean(client) }); }
-});
-
-(async () => {
-  try { requireProductionConfig(); await migrate(); app.listen(port, () => console.log(`Voice AI Assistant running on port ${port}`)); }
-  catch (e) { console.error(e); process.exit(1); }
-})();
+const upload = multer({ dest: path.join('/tmp', 'voice-ai-curriculum'), limits: { fileSize: 15 * 1024 * 1024 }, fileFilter: (_req, file, cb) => cb(null, new Set(['application/pdf','application/vnd.openxmlformats-officedocument.wordprocessingml.document','text/plain']).has(file.mimetype)) });
+app.disable('x-powered-by'); app.use(helmet()); app.use(express.json({ limit: '1mb' })); app.use(express.static('public')); app.use('/api/', rateLimit({ windowMs: 60 * 1000, limit: Number(process.env.API_RATE_LIMIT || 60), standardHeaders: 'draft-8', legacyHeaders: false }));
+function requireClient(res) { if (!client) { res.status(503).json({ error: 'خدمة الذكاء الاصطناعي غير مهيأة.' }); return false; } return true; }
+function requireProductionConfig() { if (process.env.NODE_ENV === 'production') for (const [n,v] of [['OPENAI_API_KEY',process.env.OPENAI_API_KEY],['DATABASE_URL',process.env.DATABASE_URL],['AUTH_SECRET',process.env.AUTH_SECRET]]) if (!v || (n === 'AUTH_SECRET' && v.length < 32)) throw new Error(`${n} is required in production`); }
+function idem(req) { return req.get('Idempotency-Key')?.trim().slice(0,200) || null; }
+app.post('/api/auth/register', async (req,res)=>{ try { const user=await register({email:String(req.body?.email||''),password:String(req.body?.password||''),role:req.body?.role}); res.status(201).json({user}); } catch(e){ res.status(400).json({error:'تعذر إنشاء الحساب.'}); }});
+app.post('/api/auth/login', async (req,res)=>{ try { const result=await login({email:String(req.body?.email||''),password:String(req.body?.password||'')}); res.setHeader('Set-Cookie',sessionCookie(result.token)); res.json({user:result.user}); } catch { res.status(401).json({error:'البريد أو كلمة المرور غير صحيحة.'}); }});
+app.post('/api/auth/logout',(req,res)=>{ res.setHeader('Set-Cookie','session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax'); res.status(204).end(); });
+app.post('/api/chat',auth(false),async(req,res)=>{ try { if(!requireClient(res))return; const message=typeof req.body?.message==='string'?req.body.message.trim():''; if(!message||message.length>2000)return res.status(400).json({error:'الرسالة مطلوبة وبحد أقصى 2000 حرف.'}); const history=Array.isArray(req.body?.history)?req.body.history.filter(x=>['user','assistant'].includes(x?.role)&&typeof x?.content==='string').slice(-12).map(x=>({role:x.role,content:x.content.slice(0,2000)})):[]; const response=await client.responses.create({model:process.env.OPENAI_MODEL||'gpt-5-mini',instructions:'أنت AI Tutor عربي. كن واضحًا ومفيدًا. لا تدّعِ أن معلومة من منهج إلا إذا استندت إلى مصدر قدمه المستخدم أو النظام.',input:[...history,{role:'user',content:message}]}); res.json({answer:response.output_text||'لم أتمكن من توليد إجابة.'}); } catch(e){console.error(e);res.status(500).json({error:'حدث خطأ أثناء معالجة الطلب.'});}});
+app.post('/api/education/curriculum/upload',auth(true),requireRole('teacher','admin'),upload.single('curriculum'),async(req,res)=>{let temp=req.file?.path;try{if(!requireClient(res))return;if(!req.file)return res.status(400).json({error:'ارفع PDF أو DOCX أو TXT.'});const subject=String(req.body?.subject||'').trim().slice(0,100),grade=String(req.body?.grade||'').trim().slice(0,100),title=String(req.body?.title||req.file.originalname).trim().slice(0,200);if(!subject||!grade)return res.status(400).json({error:'المادة والصف مطلوبان.'});const key=idem(req);if(key){const prior=await query('SELECT response FROM idempotency_keys WHERE key=$1 AND user_id=$2',[key,req.user.sub]);if(prior.rows[0])return res.status(202).json(prior.rows[0].response);}const stored=await put(req.file.path,req.file.originalname);const file=await client.files.create({file:fs.createReadStream(req.file.path),purpose:'user_data'});const vectorStore=await client.vectorStores.create({name:`curriculum-${crypto.randomUUID()}`});const vectorFile=await client.vectorStores.files.create(vectorStore.id,{file_id:file.id,attributes:{subject,grade,curriculum_title:title,source_version:'v1'}});const versionId=crypto.randomUUID(),curriculumId=crypto.randomUUID(),hash=crypto.createHash('sha256').update(fs.readFileSync(req.file.path)).digest('hex');await query(`INSERT INTO curriculum_versions (id,curriculum_id,source_version,title,subject,grade,status,source_name,source_hash,source_file_id,vector_store_id,curriculum) VALUES ($1,$2,'v1',$3,$4,$5,'processing',$6,$7,$8,$9,'{}')`,[versionId,curriculumId,title,subject,grade,stored.name,hash,file.id,vectorStore.id]);const jobId=await enqueue('ingest_curriculum',{versionId,curriculumId,title,subject,grade,vectorStoreId:vectorStore.id,vectorFileId:vectorFile.id,sourceFileId:file.id,storageId:stored.id});const response={jobId,versionId,status:'queued'};if(key)await query('INSERT INTO idempotency_keys (key,user_id,response) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING',[key,req.user.sub,response]);await audit({action:'curriculum.upload',actorId:req.user.sub,actorRole:req.user.role,curriculumVersionId:versionId,metadata:{title,subject,grade}});res.status(202).json(response);}catch(e){console.error(e);res.status(500).json({error:'تعذر بدء معالجة المنهج.'});}finally{if(temp)fs.promises.unlink(temp).catch(()=>{});}});
+app.get('/api/jobs/:jobId',auth(true),async(req,res)=>{try{const job=await getJob(req.params.jobId);if(!job)return res.status(404).json({error:'المهمة غير موجودة.'});res.json({id:job.id,status:job.status,error:job.error,result:job.result});}catch{res.status(500).json({error:'تعذر قراءة حالة المهمة.'});}});
+app.get('/api/education/curriculum/:versionId',auth(true),async(req,res)=>{try{const r=await query('SELECT id,curriculum_id,source_version,title,subject,grade,status,curriculum,evaluation,approved_by,published_at,created_at,updated_at FROM curriculum_versions WHERE id=$1',[req.params.versionId]);const v=r.rows[0];if(!v)return res.status(404).json({error:'المنهج غير موجود.'});if(v.status!=='published'&&!['teacher','admin'].includes(req.user.role))return res.status(403).json({error:'المحتوى غير منشور.'});res.json(v);}catch{res.status(500).json({error:'تعذر قراءة المنهج.'});}});
+app.get('/api/education/review-queue',auth(true),requireRole('teacher','admin'),async(_req,res)=>{const r=await query("SELECT id,title,subject,grade,status,evaluation,created_at FROM curriculum_versions WHERE status IN ('awaiting-review','needs-review') ORDER BY created_at DESC");res.json({items:r.rows});});
+app.post('/api/education/curriculum/:versionId/publish',auth(true),requireRole('teacher','admin'),async(req,res)=>{try{const r=await query('SELECT * FROM curriculum_versions WHERE id=$1',[req.params.versionId]),v=r.rows[0];if(!v)return res.status(404).json({error:'المنهج غير موجود.'});const threshold=Number(process.env.GROUNDING_THRESHOLD||0.9);if(v.status!=='awaiting-review'||v.evaluation?.status!=='passed'||Number(v.evaluation?.score||0)<threshold)return res.status(409).json({error:'المنهج لم يجتز التقييم أو لم يصل للمراجعة.'});if(req.body?.approved!==true)return res.status(403).json({error:'الموافقة الصريحة مطلوبة.'});await query("UPDATE curriculum_versions SET status='published',approved_by=$2,published_at=now(),updated_at=now() WHERE id=$1",[v.id,req.user.sub]);await audit({action:'curriculum.publish',actorId:req.user.sub,actorRole:req.user.role,curriculumVersionId:v.id});res.json({status:'published',versionId:v.id});}catch(e){console.error(e);res.status(500).json({error:'تعذر نشر المنهج.'});}});
+app.post('/api/education/curriculum/:versionId/rollback',auth(true),requireRole('teacher','admin'),async(req,res)=>{try{const target=(await query('SELECT * FROM curriculum_versions WHERE id=$1',[req.params.versionId])).rows[0];if(!target||target.evaluation?.status!=='passed')return res.status(404).json({error:'النسخة غير صالحة للرجوع إليها.'});const current=(await query("SELECT * FROM curriculum_versions WHERE curriculum_id=$1 AND status='published' ORDER BY published_at DESC LIMIT 1",[target.curriculum_id])).rows[0];if(current&&current.id!==target.id)await query("UPDATE curriculum_versions SET status='draft',updated_at=now() WHERE id=$1",[current.id]);await query("UPDATE curriculum_versions SET status='published',approved_by=$2,published_at=now(),updated_at=now() WHERE id=$1",[target.id,req.user.sub]);await audit({action:'curriculum.rollback',actorId:req.user.sub,actorRole:req.user.role,curriculumVersionId:target.id,metadata:{previousVersionId:current?.id||null}});res.json({status:'published',versionId:target.id});}catch{res.status(500).json({error:'تعذر تنفيذ الرجوع.'});}});
+app.get('/api/education/progress/:studentId',auth(true),async(req,res)=>{if(req.user.role==='student'&&req.user.sub!==req.params.studentId)return res.status(403).json({error:'غير مصرح.'});const r=await query('SELECT * FROM student_progress WHERE student_id=$1 ORDER BY last_seen_at DESC NULLS LAST',[req.params.studentId]);res.json({items:r.rows});});
+app.get('/health',async(_req,res)=>{try{await query('SELECT 1');res.json({status:'ok',database:'ok',ai:Boolean(client)});}catch{res.status(503).json({status:'degraded',database:'unavailable',ai:Boolean(client)});}});
+(async()=>{try{requireProductionConfig();await migrate();app.listen(port,()=>console.log(`Voice AI Assistant running on port ${port}`));}catch(e){console.error(e);process.exit(1);}})();
