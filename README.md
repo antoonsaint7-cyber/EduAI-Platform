@@ -1,8 +1,15 @@
 # EduAI Platform 🎓🤖
 
-منصة تعليمية تجارية مبنية بالذكاء الاصطناعي، تحول المنهج الدراسي من محتوى خام إلى تجربة تعليمية متكاملة للمدرس والطالب.
+> **AI-powered educational platform for turning curriculum content into structured, reviewable, and measurable learning experiences.**
 
-> **هذا المشروع يُباع كـ Source Code / Commercial Software.** لا يحتوي على مفاتيح API أو بيانات إنتاج حقيقية. المشتري يستخدم credentials والبنية التحتية الخاصة به وفق شروط الترخيص.
+EduAI is a **commercial source-code platform** designed for teachers, schools, education startups, and developers building AI-powered learning products.
+
+It provides an educational workflow that transforms raw curriculum content into AI-assisted lessons, teacher-reviewed content, student learning experiences, assessments, and progress tracking.
+
+> **Commercial Software / Source Code**
+> This repository does not include API keys, production credentials, or real user data. Buyers provide and configure their own credentials, third-party services, and infrastructure according to the applicable license.
+
+---
 
 ## 🚀 Educational Engine
 
@@ -26,76 +33,196 @@ Assessment
 Mastery / Adaptive Learning
 ```
 
-## ✨ المزايا
+The architecture is designed around a controlled AI content pipeline where generated educational material can be evaluated and reviewed before publication.
+
+---
+
+## ✨ Core Capabilities
 
 ### 🧠 AI Educational Engine
-- تحليل المناهج والمصادر.
-- توليد الدروس والمحتوى.
-- Grounding للمحتوى بالمصدر.
-- Evaluation قبل النشر.
-- Teacher approval workflow.
-- أساس للتعلم التكيفي وMastery.
 
-### 👨‍🏫 Teacher / 👨‍🎓 Student
-- بنية للمدرس والطالب.
-- نشر المحتوى بعد المراجعة.
-- اختبارات وتقييم.
-- تتبع تقدم الطلاب.
-- Multi-tenant foundation للمدارس والمؤسسات.
+- Curriculum and source analysis
+- AI-powered lesson and content generation
+- Source-grounded generation
+- Automated content evaluation
+- Teacher approval workflow
+- Foundation for adaptive and mastery-based learning
+
+### 👨‍🏫 Teacher Experience
+
+- Course and lesson management foundation
+- Content review and approval workflow
+- Assessment and quiz capabilities
+- Student progress tracking
+- Publishing workflow
+
+### 👨‍🎓 Student Experience
+
+- Structured learning content
+- Assessments and quizzes
+- Progress tracking
+- Foundation for personalized learning
+
+### 🏢 Multi-Tenant Architecture
+
+- Foundation for schools and education institutions
+- Tenant-isolation architecture and tests
+- Organization-level data boundaries
+- Suitable foundation for commercial education deployments
 
 ### 🤖 AI Integrations
-- OpenAI integration.
-- Multimodal tutoring foundation.
-- Realtime Voice foundation.
-- AI usage controls وproduction configuration.
 
-### 🔐 Commercial Platform
-- Email verification / password reset foundation.
-- MFA / TOTP.
-- Payments + signed webhook verification.
-- S3 production storage integration.
-- Tenant-isolation tests.
-- Rate limiting وsecurity middleware.
+- OpenAI integration
+- Multimodal tutoring foundation
+- Realtime voice foundation
+- AI usage controls
+- Production configuration patterns
+
+### 🔐 Security & Commercial Infrastructure
+
+- Email verification / password reset foundation
+- MFA / TOTP
+- Payments with signed webhook verification
+- S3 production storage integration
+- Tenant-isolation tests
+- Rate limiting
+- Security middleware
 
 ### 🧪 Engineering & Operations
-- GitHub Actions CI.
-- Unit / evaluation tests.
-- Integration tests.
-- Browser E2E باستخدام Playwright.
-- Security/dependency checks.
-- Backup / restore tooling.
-- OpenTelemetry foundation.
-- Staging / Production release gates.
-- Release وrollback runbook.
 
-## 🛠️ التشغيل محليًا
+- GitHub Actions CI
+- Unit and evaluation tests
+- Integration tests
+- Browser E2E testing with Playwright
+- Security and dependency checks
+- Backup / restore tooling
+- OpenTelemetry foundation
+- Staging / production release gates
+- Release and rollback runbook
 
-المتطلبات:
+---
+
+## 📊 Feature Status
+
+The repository intentionally distinguishes production-oriented integrations from architectural foundations. Verify the implementation in the source before representing a capability as fully production-ready.
+
+| Module | Status |
+|---|---|
+| Curriculum analysis | 🟢 Implemented capability |
+| AI content generation | 🟢 Implemented capability |
+| Source grounding | 🟢 Implemented capability |
+| Content evaluation | 🟢 Implemented capability |
+| Teacher review workflow | 🟢 Implemented capability |
+| Assessments | 🟢 Implemented capability |
+| Progress tracking | 🟢 Implemented capability |
+| Multi-tenancy | 🟡 Foundation / integration dependent |
+| Adaptive / mastery learning | 🟡 Foundation |
+| Multimodal tutoring | 🟡 Foundation |
+| Realtime voice | 🟡 Foundation |
+| MFA / TOTP | 🟢 Implemented capability |
+| Payments / signed webhooks | 🟢 Integration |
+| S3 storage | 🟢 Integration |
+| Observability | 🟡 Foundation |
+
+> **Note:** Status labels describe the current product positioning and should be kept aligned with the actual implementation as the codebase evolves.
+
+---
+
+## 🏗️ Architecture
+
+At a high level, the platform connects the user-facing educational experience with AI services, persistence, storage, payments, and observability infrastructure.
+
+```text
+┌─────────────────────────────┐
+│     Teacher / Student       │
+└──────────────┬──────────────┘
+               ↓
+┌─────────────────────────────┐
+│       EduAI Application      │
+├─────────────────────────────┤
+│ Auth │ AI │ Courses │ Exams │
+│ Tenants │ Progress │ Admin  │
+└──────────────┬──────────────┘
+               ↓
+┌──────────────┼──────────────┐
+│ PostgreSQL   │ S3           │
+│ OpenAI       │ Stripe       │
+│ OpenTelemetry│              │
+└─────────────────────────────┘
+```
+
+The exact implementation and module layout should be treated as the source of truth.
+
+---
+
+## 📦 What You Get
+
+The commercial source-code package is intended to include:
+
+- Full project source code
+- AI educational engine components
+- Teacher / student architecture
+- Authentication and security components
+- Assessment capabilities
+- AI integrations
+- Payment and storage integrations where configured
+- Automated testing setup
+- CI/CD configuration
+- Operational documentation
+- Release and rollback guidance
+- Environment configuration template
+- Commercial license
+
+### ❌ What Is Not Included
+
+- OpenAI API keys
+- Stripe secrets
+- AWS credentials
+- Email provider credentials
+- Production database credentials
+- Real user data
+- Cloud hosting or infrastructure costs
+- Third-party service subscriptions
+
+---
+
+## 🛠️ Local Development
+
+### Requirements
 
 - Node.js 20+
-- PostgreSQL للمزايا التي تعتمد على قاعدة البيانات.
-- مفاتيح الخدمات المطلوبة للمزايا الخارجية.
+- PostgreSQL for database-dependent features
+- Credentials for any external services you want to enable
+
+### Install
 
 ```bash
 npm install
+```
+
+### Start the application
+
+```bash
 npm start
 ```
 
-ثم افتح:
+Then open:
 
 ```text
 http://localhost:3000
 ```
 
-للمهام الخلفية:
+### Start background workers
 
 ```bash
 npm run worker
 ```
 
+---
+
 ## ⚙️ Environment Variables
 
-استخدم `.env` محليًا أو Secret Manager في Staging/Production.
+Use `.env` for local development and a Secret Manager for Staging / Production.
 
 ```env
 NODE_ENV=development
@@ -110,9 +237,13 @@ S3_REGION=your_region
 OTEL_EXPORTER_OTLP_ENDPOINT=optional_endpoint
 ```
 
-**لا تضع أي secrets داخل Git.**
+**Never commit secrets to Git.**
 
-## 🧪 الاختبارات
+---
+
+## 🧪 Testing
+
+Run the available test suites before release:
 
 ```bash
 npm test
@@ -120,9 +251,13 @@ npm run test:integration
 npm run test:e2e
 ```
 
-## 🏗️ Staging / Production
+For browser E2E, the project uses Playwright where configured.
 
-قبل الإطلاق:
+---
+
+## 🏗️ Staging / Production Release Flow
+
+Before production deployment:
 
 ```text
 CI Green
@@ -146,42 +281,62 @@ Load / Security Review
 Production
 ```
 
-راجع `ops/RELEASE_RUNBOOK.md` قبل تسليم أي إصدار.
+Review `ops/RELEASE_RUNBOOK.md` before delivering a release.
 
-## 💳 المنتج عند البيع
+---
 
-النسخة الحالية مهيأة للبيع كـ **Source Code / Commercial Software Starter**، وليست اشتراك SaaS جاهزًا للمستخدم النهائي.
+## 💳 Commercial Product
 
-المشتري يحصل على الكود والوثائق والإعدادات حسب الترخيص، ويستخدم مفاتيحه وخدماته وبنيته التحتية الخاصة.
+EduAI is positioned as a **Source Code / Commercial Software Starter**, not as a hosted SaaS subscription for end users.
 
-### السعر المقترح
+The buyer receives the source code, documentation, and configuration templates covered by the selected license, and provides their own credentials, infrastructure, and third-party service accounts.
 
-- Launch: **$499**
-- بعد إثبات المنتج ومراجعات العملاء: **$799+**
-- White-label / custom deployment: تسعير منفصل حسب نطاق العمل.
+### Suggested Pricing
+
+- **Launch:** $499
+- **After product validation and customer reviews:** $799+
+- **White-label / custom deployment:** Custom pricing based on scope
+
+> Pricing is a commercial positioning guideline and may change independently of the source code.
+
+---
 
 ## 🔒 Security
 
-لا تُضمّن في المستودع:
+Never include the following in the repository:
 
 - OpenAI API keys
 - Stripe secrets
 - AWS credentials
 - Email provider credentials
 - Production database credentials
-- بيانات مستخدم حقيقية
+- Real user or student data
 
-استخدم Environment Variables أو Secret Manager.
+Use environment variables or a dedicated Secret Manager instead.
+
+---
 
 ## 📄 License
 
-الإصدار التجاري يجب أن يتضمن **Commercial License** واضحة تحدد الاستخدام وإعادة التوزيع وإعادة البيع وأي حدود مرتبطة بالمستخدمين أو المؤسسات.
+Commercial deployments should include a clear **Commercial License** defining permitted use, modification, redistribution, resale, deployment, and any applicable user or organization limits.
+
+The license terms are the legal source of truth for what a buyer may and may not do with the software.
+
+---
 
 ## 📦 Release Checklist
 
-1. شغّل `npm test`.
-2. شغّل Integration وE2E.
-3. راجع `ops/RELEASE_RUNBOOK.md`.
-4. تأكد من عدم وجود secrets داخل Git.
-5. أنشئ release/tag واضحًا.
-6. سلّم Source Code + Documentation + License + `.env.example`.
+Before delivering a release:
+
+1. Run `npm test`.
+2. Run integration and E2E tests.
+3. Review `ops/RELEASE_RUNBOOK.md`.
+4. Confirm that no secrets are present in Git history or the release.
+5. Create a clear release/tag.
+6. Deliver the source code, documentation, license, and `.env.example`.
+
+---
+
+## 🎯 Positioning
+
+EduAI is intended to serve as a strong starting point for building commercial AI-powered education products, while leaving infrastructure credentials, deployment decisions, and final production configuration under the buyer's control.
