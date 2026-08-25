@@ -1,9 +1,20 @@
 import { validateCurriculum } from './schema.js';
 
+const HEADING_PATTERNS = [
+  /^(?:unit|lesson|chapter)\s+(?:\d+|[ivxlcdm]+)\b/i,
+  /^(?:وحدة|درس|فصل)\s+(?:\d+|[٠-٩]+|[اأإآبجدهـوحطيكلمنسعفصقرشتثخذضظغ])\b/u,
+  /^(?:الوحدة|الدرس|الفصل)\s+(?:\d+|[٠-٩]+|[اأإآبجدهـوحطيكلمنسعفصقرشتثخذضظغ])\b/u
+];
+
+export function isHeading(line) {
+  const normalized = line.trim().replace(/^[\s#*•-]+/, '');
+  return HEADING_PATTERNS.some((pattern) => pattern.test(normalized));
+}
+
 export function analyzeSource({ text, metadata = {} }) {
   if (typeof text !== 'string' || !text.trim()) throw new Error('Source text is required');
   const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-  const headings = lines.filter((line) => /^(unit|وحدة|lesson|درس|chapter|فصل)\b/i.test(line));
+  const headings = lines.filter(isHeading);
   const sections = headings.map((title, index) => ({ id: `section-${index + 1}`, title }));
   return { type: 'curriculum-analysis', metadata, textLength: text.length, sections, sourceHashInput: text };
 }
