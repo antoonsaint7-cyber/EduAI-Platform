@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>مساعد صوتي ذكي</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="shell">
+    <section class="card">
+      <div class="badge">VOICE AI</div>
+      <h1>مساعدك الصوتي 🎙️</h1>
+      <p class="subtitle">اضغط على الميكروفون، اتكلم، وسيحوّل كلامك إلى سؤال للمساعد.</p>
+
+      <button id="mic" class="mic" aria-label="ابدأ التسجيل">🎙️</button>
+      <p id="status">جاهز للاستماع</p>
+
+      <div class="conversation">
+        <div class="bubble user"><strong>أنت</strong><span id="userText">...</span></div>
+        <div class="bubble assistant"><strong>المساعد</strong><span id="assistantText">...</span></div>
+      </div>
+
+      <div class="row">
+        <button id="send" class="send">إرسال النص</button>
+        <button id="clear" class="secondary">مسح</button>
+      </div>
+      <textarea id="input" placeholder="أو اكتب رسالتك هنا..."></textarea>
+    </section>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>
