@@ -1,33 +1,32 @@
-import { validateCurriculum } from './schema.js';
+const { validateCurriculum } = require('./schema');
 
 const HEADING_PATTERNS = [
   /^(?:unit|lesson|chapter)\s+(?:\d+|[ivxlcdm]+)\b/i,
   /^(?:وحدة|درس|فصل)\s+(?:\d+|[٠-٩]+|[اأإآبجدهـوحطيكلمنسعفصقرشتثخذضظغ])\b/u,
-  /^(?:الوحدة|الدرس|الفصل)\s+(?:\d+|[٠-٩]+|[اأإآبجدهـوحطيكلمنسعفصقرشتثخذضظغ])\b/u
+  /^(?:الوحدة|الدرس|الفصل)\s+(?:\d+|[٠-٩]+|[اأإآبجدهـوحطيكلمنسعفصقرشتثخذضظغ])\b/u,
+  /^(?:الوحدة|الدرس|الفصل)\s+(?:الأولى|الأول|الثانية|الثاني|الثالثة|الثالث|الرابعة|الرابع|الخامسة|الخامس|السادسة|السادس|السابعة|السابع|الثامنة|الثامن|التاسعة|التاسع|العاشرة|العاشر)\b/u
 ];
 
-export function isHeading(line) {
-  const normalized = line.trim().replace(/^[\s#*•-]+/, '');
+function isHeading(line) {
+  const normalized = String(line || '').trim().replace(/^[\s#*•-]+/, '');
   return HEADING_PATTERNS.some((pattern) => pattern.test(normalized));
 }
 
-export function analyzeSource({ text, metadata = {} }) {
+function analyzeSource({ text, metadata = {} }) {
   if (typeof text !== 'string' || !text.trim()) throw new Error('Source text is required');
   const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-  const headings = lines.filter(isHeading);
-  const sections = headings.map((title, index) => ({ id: `section-${index + 1}`, title }));
+  const sections = lines.filter(isHeading).map((title, index) => ({ id: `section-${index + 1}`, title }));
   return { type: 'curriculum-analysis', metadata, textLength: text.length, sections, sourceHashInput: text };
 }
 
-export function generateDraft({ analysis, sourceText, subject = '', grade = '' }) {
+function generateDraft({ analysis, sourceText, subject = '', grade = '' }) {
   const sections = analysis.sections.length ? analysis.sections : [{ id: 'section-1', title: 'General lesson' }];
   const curriculum = {
     id: `curriculum-${Date.now()}`,
     title: analysis.metadata.title || 'Generated curriculum', grade, subject,
     sourceVersion: analysis.metadata.sourceVersion || 'uploaded-source',
     units: [{ id: 'unit-1', title: analysis.metadata.unitTitle || 'Unit 1', lessons: sections.map((section) => ({
-      id: section.id, title: section.title, objectives: [], concepts: [],
-      sourceRefs: [{ type: 'source', locator: section.id }],
+      id: section.id, title: section.title, objectives: [], concepts: [], sourceRefs: [{ type: 'source', locator: section.id }],
       generated: { summary: sourceText.slice(0, 500), explanation: 'Draft generated from the supplied source.', examples: [], questions: [] },
       evaluation: { status: 'pending', grounded: false, issues: [] }
     })) }]
@@ -37,7 +36,7 @@ export function generateDraft({ analysis, sourceText, subject = '', grade = '' }
   return curriculum;
 }
 
-export function evaluateDraft(curriculum, sourceText) {
+function evaluateDraft(curriculum, sourceText) {
   const issues = [];
   if (!sourceText?.trim()) issues.push('Missing source');
   if (!curriculum?.units?.length) issues.push('No units generated');
@@ -48,8 +47,10 @@ export function evaluateDraft(curriculum, sourceText) {
   return { status: issues.length ? 'needs-review' : 'passed', grounded: issues.length === 0, issues };
 }
 
-export function publishIfApproved(curriculum, evaluation, { approved = false } = {}) {
+function publishIfApproved(curriculum, evaluation, { approved = false } = {}) {
   if (!approved) return { status: 'pending-human-review', curriculum };
   if (evaluation.status !== 'passed') throw new Error('Curriculum must pass evaluation before publication');
   return { status: 'published', publishedAt: new Date().toISOString(), curriculum };
 }
+
+module.exports = { isHeading, analyzeSource, generateDraft, evaluateDraft, publishIfApproved };
