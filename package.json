@@ -1,16 +1,17 @@
 {
   "name": "voice-ai-assistant",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "private": true,
   "description": "Arabic AI educational platform with curriculum ingestion, evaluation and teacher review.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "worker": "node worker.js",
-    "test": "node --check server.js && node --check worker.js && node --check src/platform/auth.js && node --check src/platform/db.js && node --check src/platform/queue.js && node --check src/platform/grounding.js && node evals/educational-engine.test.mjs && node evals/phase4.test.mjs"
+    "test": "node --check server.js && node --check worker.js && node --check src/platform/auth.js && node --check src/platform/db.js && node --check src/platform/queue.js && node --check src/platform/grounding.js && node evals/educational-engine.test.mjs && node evals/phase4.test.mjs && node evals/platform.test.mjs"
   },
   "engines": { "node": ">=20" },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.879.0",
     "express": "^5.1.0",
     "express-rate-limit": "^8.2.1",
     "helmet": "^8.1.0",
