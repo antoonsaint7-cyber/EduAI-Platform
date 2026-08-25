@@ -15,28 +15,41 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: voice_ai
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d voice_ai"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/voice_ai
+      AUTH_SECRET: ci-only-secret-at-least-32-characters-long
+      NODE_ENV: test
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-
       - name: Setup Node
         uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
           cache-dependency-path: package.json
-
       - name: Install dependencies
         run: npm install --no-audit --no-fund
-
       - name: Syntax check
-        run: node --check server.js && node --check public/app.js && node --check public/education.js && node --check src/educational-engine/pipeline.js && node --check src/educational-engine/schema.js
-
-      - name: Offline educational engine evals
-        run: node evals/educational-engine.test.mjs
-
-      - name: Run project tests
+        run: node --check server.js && node --check worker.js && node --check public/app.js && node --check public/education.js && node --check src/platform/auth.js && node --check src/platform/db.js && node --check src/platform/queue.js && node --check src/platform/grounding.js
+      - name: Database migration smoke test
+        run: node -e "require('./src/platform/db').migrate().then(()=>console.log('migration ok')).catch(e=>{console.error(e);process.exit(1)})"
+      - name: Educational engine evals
+        run: node evals/educational-engine.test.mjs && node evals/phase4.test.mjs
+      - name: Project tests
         run: npm test --if-present
-
       - name: Security audit
         run: npm audit --audit-level=high
