@@ -5,6 +5,7 @@ const { query, withTransaction, close } = require('./src/db');
 const { normalizeEmail, hashPassword, verifyPassword, createSession, setSessionCookie, clearSessionCookie, getCurrentUser } = require('./src/auth');
 const { rateLimit } = require('./src/rate-limit');
 const { buildEducationalPrompt } = require('./src/education');
+const { generateLesson, generateCourse, generateQuiz } = require('./src/ai-content');
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
@@ -29,6 +30,7 @@ app.use(express.static('public', { extensions: ['html'] }));
 const authLimiter = rateLimit({ windowMs: 15 * 60_000, max: 20 });
 const chatLimiter = rateLimit({ windowMs: 60_000, max: 20 });
 const writeLimiter = rateLimit({ windowMs: 60_000, max: 60 });
+const aiLimiter = rateLimit({ windowMs: 60_000, max: 10 });
 
 function validText(value, max = 160) { return typeof value === 'string' && value.trim().length > 0 && value.trim().length <= max; }
 function validEmail(value) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value); }
@@ -117,6 +119,73 @@ app.post('/api/chat', chatLimiter, async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+app.post('/api/ai/lesson-generate', aiLimiter, requireRole('teacher'), async (req, res, next) => {
+  try {
+    const title = String(req.body?.title || '').trim();
+    const subject = String(req.body?.subject || '').trim();
+    const level = String(req.body?.level || '').trim();
+    const goals = String(req.body?.goals || '').trim();
+    const sourceText = String(req.body?.sourceText || '').trim().slice(0, 30000);
+    if (!validText(title, 200) || !validText(subject, 160) || !validText(level, 160) || goals.length > 1000) return res.status(400).json({ error: 'عنوان الدرس والمادة والمستوى مطلوبة.' });
+    const lesson = await generateLesson({ client, title, subject, level, goals, sourceText });
+    res.json({ lesson });
+  } catch (error) { next(error); }
+});
+
+app.post('/api/ai/course-generate', aiLimiter, requireRole('teacher'), async (req, res, next) => {
+  try {
+    const title = String(req.body?.title || '').trim();
+    const subject = String(req.body?.subject || '').trim();
+    const level = String(req.body?.level || '').trim();
+    const sourceText = String(req.body?.sourceText || '').trim().slice(0, 30000);
+    const lessonCount = Number(req.body?.lessonCount || 5);
+    if (!validText(title, 200) || !validText(subject, 160) || !validText(level, 160) || !Number.isInteger(lessonCount) || lessonCount < 3 || lessonCount > 8) return res.status(400).json({ error: 'بيانات الكورس غير صحيحة.' });
+    const course = await generateCourse({ client, title, subject, level, lessonCount, sourceText });
+    res.json({ course });
+  } catch (error) { next(error); }
+});
+
+app.post('/api/ai/quiz-generate', aiLimiter, requireRole('teacher'), async (req, res, next) => {
+  try {
+    const lessonId = String(req.body?.lessonId || '');
+    const questionCount = Number(req.body?.questionCount || 10);
+    if (!/^[0-9a-f-]{36}$/i.test(lessonId) || !Number.isInteger(questionCount) || questionCount < 5 || questionCount > 15) return res.status(400).json({ error: 'الدرس وعدد الأسئلة غير صحيحين.' });
+    const lessonResult = await query('SELECT id,title,subject,level,content FROM lessons WHERE id=$1 AND tenant_id=$2 AND created_by=$3', [lessonId, req.user.tenant_id, req.user.id]);
+    const lesson = lessonResult.rows[0];
+    if (!lesson) return res.status(404).json({ error: 'الدرس غير موجود.' });
+    const quiz = await generateQuiz({ client, title: lesson.title, subject: lesson.subject, level: lesson.level, lessonContent: lesson.content, questionCount });
+    const questions = Array.isArray(quiz.questions) ? quiz.questions.slice(0, questionCount).filter(q => q && typeof q.question === 'string' && Number.isInteger(q.answer_index)) : [];
+    if (questions.length < 5) return res.status(422).json({ error: 'الناتج المولد لم يحتوِ على أسئلة كافية.' });
+    const stored = await query('INSERT INTO assessments(lesson_id,tenant_id,questions,created_by) VALUES($1,$2,$3,$4) RETURNING id,lesson_id,created_at', [lesson.id, req.user.tenant_id, JSON.stringify({ ...quiz, questions }), req.user.id]);
+    res.status(201).json({ assessment: stored.rows[0], quiz: { ...quiz, questions } });
+  } catch (error) { next(error); }
+});
+
+app.get('/api/assessments', requireRole('teacher', 'student'), async (req, res, next) => {
+  try {
+    const lessonId = req.query.lessonId ? String(req.query.lessonId) : null;
+    const result = await query('SELECT a.id,a.lesson_id,a.created_at,l.title,l.subject,l.level,a.questions FROM assessments a JOIN lessons l ON l.id=a.lesson_id WHERE a.tenant_id=$1 AND l.status=\'published\' AND ($2::uuid IS NULL OR a.lesson_id=$2::uuid) ORDER BY a.created_at DESC', [req.user.tenant_id, lessonId]);
+    res.json({ assessments: result.rows });
+  } catch (error) { next(error); }
+});
+
+app.post('/api/assessments/:id/submit', writeLimiter, requireRole('student'), async (req, res, next) => {
+  try {
+    const answers = Array.isArray(req.body?.answers) ? req.body.answers : [];
+    const result = await query('SELECT a.id,a.lesson_id,a.questions,l.subject,l.title FROM assessments a JOIN lessons l ON l.id=a.lesson_id WHERE a.id=$1 AND a.tenant_id=$2 AND l.status=\'published\'', [req.params.id, req.user.tenant_id]);
+    const assessment = result.rows[0];
+    if (!assessment) return res.status(404).json({ error: 'الاختبار غير موجود.' });
+    const payload = typeof assessment.questions === 'string' ? JSON.parse(assessment.questions) : assessment.questions;
+    const questions = Array.isArray(payload?.questions) ? payload.questions : [];
+    const normalized = answers.slice(0, questions.length).map(Number);
+    let correct = 0;
+    const review = questions.map((q, index) => { const isCorrect = normalized[index] === Number(q.answer_index); if (isCorrect) correct += 1; return { question: q.question, selected: Number.isInteger(normalized[index]) ? normalized[index] : null, correct: isCorrect, explanation: q.explanation || '' }; });
+    const score = questions.length ? Math.round((correct / questions.length) * 10000) / 100 : 0;
+    const progressResult = await query('INSERT INTO progress(tenant_id,student_id,lesson_id,mastery,last_score,attempts) VALUES($1,$2,$3,$4,$5,1) ON CONFLICT(student_id,lesson_id) DO UPDATE SET last_score=EXCLUDED.last_score, attempts=progress.attempts+1, mastery=LEAST(100, ROUND((progress.mastery*0.7 + EXCLUDED.last_score*0.3)::numeric,2)) RETURNING *', [req.user.tenant_id, req.user.id, assessment.lesson_id, score, score]);
+    res.json({ score, correct, total: questions.length, review, progress: progressResult.rows[0] });
+  } catch (error) { next(error); }
+});
+
 app.post('/api/lessons', writeLimiter, requireRole('teacher'), async (req, res, next) => {
   try {
     const title = String(req.body?.title || '').trim();
@@ -165,6 +234,30 @@ app.post('/api/progress', writeLimiter, requireRole('student'), async (req, res,
   } catch (error) { next(error); }
 });
 
+app.get('/api/analytics/teacher', requireRole('teacher'), async (req, res, next) => {
+  try {
+    const tenantId = req.user.tenant_id;
+    const [lessons, students, mastery, atRisk, subjects] = await Promise.all([
+      query('SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE status=\'published\')::int AS published, COUNT(*) FILTER (WHERE status=\'review\')::int AS review FROM lessons WHERE tenant_id=$1', [tenantId]),
+      query('SELECT COUNT(*)::int AS total FROM users WHERE tenant_id=$1 AND role=\'student\'', [tenantId]),
+      query('SELECT COALESCE(ROUND(AVG(mastery)::numeric,2),0) AS average FROM progress WHERE tenant_id=$1', [tenantId]),
+      query('SELECT COUNT(DISTINCT student_id)::int AS total FROM progress WHERE tenant_id=$1 AND mastery < 60', [tenantId]),
+      query('SELECT l.subject,ROUND(AVG(p.mastery)::numeric,1) AS mastery,COUNT(*)::int AS records FROM progress p JOIN lessons l ON l.id=p.lesson_id WHERE p.tenant_id=$1 GROUP BY l.subject ORDER BY mastery DESC LIMIT 6', [tenantId]),
+    ]);
+    res.json({ lessons: lessons.rows[0], students: students.rows[0], mastery: mastery.rows[0], at_risk_students: atRisk.rows[0], subjects: subjects.rows });
+  } catch (error) { next(error); }
+});
+
+app.get('/api/analytics/student', requireRole('student'), async (req, res, next) => {
+  try {
+    const [summary, recent] = await Promise.all([
+      query('SELECT COUNT(*)::int AS lessons_attempted,COALESCE(ROUND(AVG(mastery)::numeric,1),0) AS average_mastery,COALESCE(MAX(last_score),0) AS best_score,COALESCE(SUM(attempts),0)::int AS attempts FROM progress WHERE tenant_id=$1 AND student_id=$2', [req.user.tenant_id, req.user.id]),
+      query('SELECT l.title,l.subject,p.mastery,p.last_score,p.attempts,p.updated_at FROM progress p JOIN lessons l ON l.id=p.lesson_id WHERE p.tenant_id=$1 AND p.student_id=$2 ORDER BY p.updated_at DESC LIMIT 8', [req.user.tenant_id, req.user.id]),
+    ]);
+    res.json({ summary: summary.rows[0], recent: recent.rows });
+  } catch (error) { next(error); }
+});
+
 app.post('/api/webhooks/stripe', async (req, res, next) => {
   try {
     const secret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -187,6 +280,8 @@ app.post('/api/webhooks/stripe', async (req, res, next) => {
 app.use((error, _req, res, _next) => {
   console.error(error?.code || error?.message || 'request_error');
   if (error?.code === 'DATABASE_NOT_CONFIGURED') return res.status(503).json({ error: 'Database is not configured.' });
+  if (error?.code === 'OPENAI_NOT_CONFIGURED') return res.status(503).json({ error: 'OPENAI_API_KEY غير مضبوط على الخادم.' });
+  if (error?.code === 'AI_INVALID_JSON') return res.status(502).json({ error: 'تعذر قراءة ناتج الذكاء الاصطناعي بشكل آمن.' });
   res.status(500).json({ error: 'حدث خطأ داخلي أثناء معالجة الطلب.' });
 });
 
