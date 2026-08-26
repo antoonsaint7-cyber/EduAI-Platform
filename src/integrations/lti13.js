@@ -1,0 +1,23 @@
+export const LTI_ROLES = Object.freeze({
+  SUPER_ADMIN: 'http://purl.imsglobal.org/vocab/lis/v2/membership#Administrator',
+  TEACHER: 'http://purl.imsglobal.org/vocab/lis/v2/membership#Instructor',
+  STUDENT: 'http://purl.imsglobal.org/vocab/lis/v2/membership#Learner'
+});
+
+export function mapLtiRole(role) {
+  if (!role) return 'Student';
+  if (/administrator|systemadministrator/i.test(role)) return 'SuperAdmin';
+  if (/instructor|teacher/i.test(role)) return 'Teacher';
+  return 'Student';
+}
+
+export function buildLtiLaunchContext(claims = {}) {
+  return {
+    issuer: claims.iss ?? null,
+    subject: claims.sub ?? null,
+    deploymentId: claims['https://purl.imsglobal.org/spec/lti/claim/deployment_id'] ?? null,
+    contextId: claims['https://purl.imsglobal.org/spec/lti/claim/context']?.id ?? null,
+    resourceLinkId: claims['https://purl.imsglobal.org/spec/lti/claim/resource_link']?.id ?? null,
+    role: mapLtiRole(claims['https://purl.imsglobal.org/spec/lti/claim/roles']?.[0])
+  };
+}
