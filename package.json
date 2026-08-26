@@ -1,18 +1,23 @@
 {
-  "name": "voice-ai-assistant",
-  "version": "1.1.0",
-  "private": true,
-  "description": "Arabic voice AI assistant powered by OpenAI.",
+  "name": "eduai-platform",
+  "version": "2.0.0",
+  "private": false,
+  "description": "Arabic-first commercial educational AI platform with teacher, student, tenant, learning progress, and OpenAI capabilities.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node --check server.js && node --check public/app.js"
+    "test": "node --test test/*.test.js && node --check server.js && node --check public/app.js && node --check public/education.js",
+    "test:unit": "node --test test/*.test.js",
+    "test:syntax": "node --check server.js && node --check public/app.js && node --check public/education.js",
+    "test:e2e": "node test/e2e-smoke.test.js",
+    "db:migrate": "node scripts/migrate.js"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
     "express": "^5.1.0",
-    "openai": "^5.12.2"
+    "openai": "^5.12.2",
+    "pg": "^8.16.3"
   }
 }
