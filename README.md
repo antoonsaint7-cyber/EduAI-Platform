@@ -154,11 +154,14 @@ Production
 
 المشتري يحصل على الكود والوثائق والإعدادات حسب الترخيص، ويستخدم مفاتيحه وخدماته وبنيته التحتية الخاصة.
 
-### السعر المقترح
+### 💰 Commercial Pricing
 
-- Launch: **$499**
-- بعد إثبات المنتج ومراجعات العملاء: **$799+**
-- White-label / custom deployment: تسعير منفصل حسب نطاق العمل.
+- **Current Source Code License: $699**
+- **Future launch price after Adaptive Learning + RAG + Advanced Exams: $999–$1,299**
+- **White-label / custom deployment: $1,500–$3,000+** حسب نطاق العمل والتخصيص.
+- **Enterprise deployment: $3,000–$5,000+** حسب المتطلبات والبنية والتكاملات.
+
+> السعر الحالي البالغ **$699** هو سعر النسخة التجارية الحالية من Source Code، وليس سعر اشتراك SaaS أو تكلفة البنية التحتية والخدمات الخارجية.
 
 ## 🔒 Security
 
