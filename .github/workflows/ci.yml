@@ -26,16 +26,16 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
-      - name: Syntax check
-        run: node --check server.js
+      - name: Syntax and unit tests
+        run: npm test
+
+      - name: API smoke test
+        run: npm run test:e2e
 
       - name: Offline educational evals
         run: node evals/run-evals.mjs
-
-      - name: Run project tests
-        run: npm test --if-present
 
       - name: Security audit
         run: npm audit --audit-level=high
