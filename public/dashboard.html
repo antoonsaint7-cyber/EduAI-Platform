@@ -1,0 +1,7 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>EduAI Platform | Dashboard</title><link rel="stylesheet" href="/education.css"></head>
+<body><main class="shell"><section class="card"><header><h1>EduAI Platform 🎓</h1><p id="identity">جارٍ تحميل الحساب...</p></header>
+<div id="auth" hidden><h2>تسجيل الدخول</h2><input id="email" type="email" placeholder="البريد الإلكتروني"><input id="password" type="password" placeholder="كلمة المرور"><button id="login">دخول</button><p id="authStatus"></p></div>
+<div id="app" hidden><button id="logout">تسجيل الخروج</button><section id="teacher" hidden><h2>لوحة المدرس</h2><input id="title" placeholder="عنوان الدرس"><input id="subject" placeholder="المادة"><input id="level" placeholder="المستوى"><textarea id="content" placeholder="محتوى الدرس"></textarea><button id="create">إرسال للمراجعة</button><div id="teacherLessons"></div></section>
+<section id="student" hidden><h2>لوحة الطالب</h2><div id="studentLessons"></div><h3>التقدم</h3><div id="progress"></div></section></div></section></main><script src="/dashboard.js"></script></body></html>
