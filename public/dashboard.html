@@ -10,98 +10,41 @@
 <body>
   <main class="dashboard-shell">
     <header class="topbar">
-      <div>
-        <span class="eyebrow">EDUAI PLATFORM</span>
-        <h1>لوحة التحكم التعليمية</h1>
-        <p id="identity">جارٍ تحميل الحساب...</p>
-      </div>
-      <div class="top-actions">
-        <a class="ghost" href="/">المساعد الذكي</a>
-        <button id="logout" class="ghost">تسجيل الخروج</button>
-      </div>
+      <div><span class="eyebrow">EDUAI PLATFORM</span><h1>لوحة التحكم التعليمية</h1><p id="identity">جارٍ تحميل الحساب...</p></div>
+      <div class="top-actions"><a class="ghost" href="/">المساعد الذكي</a><button id="logout" class="ghost">تسجيل الخروج</button></div>
     </header>
-
     <section id="auth" class="panel auth-panel" hidden>
       <h2>تسجيل الدخول</h2>
-      <div class="form-grid">
-        <label>البريد الإلكتروني<input id="email" type="email" autocomplete="email"></label>
-        <label>كلمة المرور<input id="password" type="password" autocomplete="current-password"></label>
-      </div>
-      <button id="login" class="primary">دخول</button>
-      <p id="authStatus" class="status"></p>
+      <div class="form-grid"><label>البريد الإلكتروني<input id="email" type="email" autocomplete="email"></label><label>كلمة المرور<input id="password" type="password" autocomplete="current-password"></label></div>
+      <button id="login" class="primary">دخول</button><p id="authStatus" class="status"></p>
     </section>
-
     <div id="app" hidden>
       <section id="stats" class="stat-grid"></section>
-
       <section id="teacher" hidden>
         <div class="section-heading"><div><h2>مساحة المدرس</h2><p>أنشئ المحتوى، ولّد الدروس والاختبارات، وتابع أداء الطلاب.</p></div></div>
-
         <div class="tool-grid">
-          <article class="panel tool-card">
-            <div class="tool-title"><span class="icon">✦</span><div><h3>مولّد الدرس بالذكاء الاصطناعي</h3><p>أنشئ درسًا كاملًا بأهداف وأقسام وأمثلة وأسئلة مراجعة.</p></div></div>
-            <div class="form-grid">
-              <label>عنوان الدرس<input id="aiLessonTitle" maxlength="200"></label>
-              <label>المادة<input id="aiLessonSubject" maxlength="160"></label>
-              <label>المستوى<input id="aiLessonLevel" maxlength="160"></label>
-              <label>أهداف التعلم<input id="aiLessonGoals" maxlength="1000" placeholder="مثال: فهم أسباب الثورة الصناعية وتطبيقها"></label>
-            </div>
-            <label class="full">مصدر اختياري<textarea id="aiLessonSource" rows="4" placeholder="الصق جزءًا من المنهج لزيادة دقة المحتوى..."></textarea></label>
-            <button id="generateLesson" class="primary">توليد الدرس</button>
-            <div id="lessonPreview" class="result-box" hidden></div>
+          <article class="panel tool-card"><div class="tool-title"><span class="icon">✦</span><div><h3>مولّد الدرس بالذكاء الاصطناعي</h3><p>درس منظم بأهداف وأقسام وأمثلة وأسئلة مراجعة.</p></div></div>
+            <div class="form-grid"><label>عنوان الدرس<input id="aiLessonTitle" maxlength="200"></label><label>المادة<input id="aiLessonSubject" maxlength="160"></label><label>المستوى<input id="aiLessonLevel" maxlength="160"></label><label>أهداف التعلم<input id="aiLessonGoals" maxlength="1000" placeholder="ما الذي يجب أن يتقنه الطالب؟"></label></div>
+            <label class="full">مصدر اختياري<textarea id="aiLessonSource" rows="4" placeholder="الصق جزءًا من المنهج لزيادة دقة المحتوى..."></textarea></label><button id="generateLesson" class="primary">توليد الدرس</button><div id="lessonPreview" class="result-box" hidden></div>
           </article>
-
-          <article class="panel tool-card">
-            <div class="tool-title"><span class="icon">◎</span><div><h3>مولّد الكورس</h3><p>ابنِ خطة تعليمية متكاملة من 3 إلى 8 دروس قابلة للتحويل إلى دروس فعلية.</p></div></div>
-            <div class="form-grid">
-              <label>اسم الكورس<input id="courseTitle" maxlength="200"></label>
-              <label>المادة<input id="courseSubject" maxlength="160"></label>
-              <label>المستوى<input id="courseLevel" maxlength="160"></label>
-              <label>عدد الدروس<select id="courseCount"><option>3</option><option>4</option><option selected>5</option><option>6</option><option>7</option><option>8</option></select></label>
-            </div>
-            <label class="full">مصدر اختياري<textarea id="courseSource" rows="4" placeholder="المنهج أو نقاط المحتوى الأساسية..."></textarea></label>
-            <button id="generateCourse" class="primary">توليد الكورس</button>
-            <div id="coursePreview" class="result-box" hidden></div>
+          <article class="panel tool-card"><div class="tool-title"><span class="icon">◎</span><div><h3>مولّد الكورس</h3><p>خطة من 3 إلى 8 دروس قابلة للتحويل إلى مسودات فعلية.</p></div></div>
+            <div class="form-grid"><label>اسم الكورس<input id="courseTitle" maxlength="200"></label><label>المادة<input id="courseSubject" maxlength="160"></label><label>المستوى<input id="courseLevel" maxlength="160"></label><label>عدد الدروس<select id="courseCount"><option>3</option><option>4</option><option selected>5</option><option>6</option><option>7</option><option>8</option></select></label></div>
+            <label class="full">مصدر اختياري<textarea id="courseSource" rows="4" placeholder="المنهج أو نقاط المحتوى الأساسية..."></textarea></label><button id="generateCourse" class="primary">توليد الكورس</button><div id="coursePreview" class="result-box" hidden></div>
           </article>
         </div>
-
-        <article class="panel">
-          <div class="section-heading compact"><div><h3>دروسي</h3><p>راجع الدروس وانشرها عند اكتمالها.</p></div><button id="refreshTeacher" class="ghost">تحديث</button></div>
-          <div id="teacherLessons" class="list-grid"></div>
-        </article>
-
-        <article class="panel">
-          <div class="section-heading compact"><div><h3>الاختبارات</h3><p>ولّد اختبارًا تلقائيًا لأي درس منشور أو قيد المراجعة.</p></div></div>
-          <div id="assessmentCreator" class="inline-form"></div>
-          <div id="teacherAssessments" class="list-grid"></div>
-        </article>
-
-        <article class="panel">
-          <div class="section-heading compact"><div><h3>تحليلات الطلاب</h3><p>مؤشرات سريعة تساعدك في تحديد ما يحتاج إلى تدخل.</p></div></div>
-          <div id="teacherAnalytics" class="analytics-grid"></div>
-          <div id="subjectAnalytics" class="subject-list"></div>
-        </article>
+        <article class="panel"><div class="section-heading compact"><div><h3>دروسي</h3><p>راجع الدروس وانشرها عند اكتمالها.</p></div><button id="refreshTeacher" class="ghost">تحديث</button></div><div id="teacherLessons" class="list-grid"></div></article>
+        <article class="panel"><div class="section-heading compact"><div><h3>الاختبارات</h3><p>ولّد اختبارًا تلقائيًا لأي درس.</p></div></div><div id="assessmentCreator" class="inline-form"></div><div id="teacherAssessments" class="list-grid"></div></article>
+        <article class="panel"><div class="section-heading compact"><div><h3>تحليلات الطلاب</h3><p>مؤشرات سريعة عن الأداء وما يحتاج إلى دعم.</p></div></div><div id="teacherAnalytics" class="analytics-grid"></div><div id="subjectAnalytics" class="subject-list"></div></article>
       </section>
-
       <section id="student" hidden>
-        <div class="section-heading"><div><h2>مساحة الطالب</h2><p>تعلّم، اختبر نفسك، وتابع نقاط القوة التي تحتاج إلى تحسين.</p></div></div>
+        <div class="section-heading"><div><h2>مساحة الطالب</h2><p>تعلّم، اختبر نفسك، وتابع مستوى الإتقان.</p></div></div>
         <div id="studentStats" class="stat-grid"></div>
-        <article class="panel">
-          <div class="section-heading compact"><div><h3>الدروس المنشورة</h3><p>ابدأ من الدروس المقترحة لك.</p></div><button id="refreshStudent" class="ghost">تحديث</button></div>
-          <div id="studentLessons" class="list-grid"></div>
-        </article>
-        <article class="panel">
-          <div class="section-heading compact"><div><h3>الاختبارات المتاحة</h3><p>أرسل الإجابات لتحصل على درجة وتحديث تلقائي لـMastery.</p></div></div>
-          <div id="studentAssessments" class="list-grid"></div>
-          <div id="quizResult" class="result-box" hidden></div>
-        </article>
-        <article class="panel">
-          <div class="section-heading compact"><div><h3>تقدمك</h3><p>أحدث محاولاتك ومستوى الإتقان لكل درس.</p></div></div>
-          <div id="progress" class="progress-list"></div>
-        </article>
+        <article class="panel"><div class="section-heading compact"><div><h3>الدروس المنشورة</h3><p>ابدأ من الدروس المتاحة لك.</p></div><button id="refreshStudent" class="ghost">تحديث</button></div><div id="studentLessons" class="list-grid"></div></article>
+        <article class="panel"><div class="section-heading compact"><div><h3>الاختبارات المتاحة</h3><p>الإرسال يحسب الدرجة ويحدّث Mastery تلقائيًا.</p></div></div><div id="studentAssessments" class="list-grid"></div><div id="quizResult" class="result-box" hidden></div></article>
+        <article class="panel"><div class="section-heading compact"><div><h3>تقدمك</h3><p>أحدث المحاولات ومستوى الإتقان.</p></div></div><div id="progress" class="progress-list"></div></article>
       </section>
     </div>
   </main>
-  <script src="/dashboard.js"></script>
+  <script src="/dashboard-v2.js"></script>
 </body>
 </html>
