@@ -1,14 +1,14 @@
 {
   "name": "eduai-platform",
-  "version": "4.0.0",
+  "version": "4.1.0",
   "private": false,
-  "description": "Commercial educational AI platform with adaptive learning, RAG-ready content, assessments, billing, multi-tenancy and enterprise foundations.",
+  "description": "Commercial educational AI platform with adaptive learning, grounded RAG, advanced assessments, student intelligence, billing, multi-tenancy and enterprise foundations.",
   "main": "server.js",
   "scripts": {
     "start": "node src/launcher.js",
-    "test": "node --test test/*.test.js && node --check server.js && node --check src/ai-content.js && node --check src/stage2-learning.js && node --check src/exam-engine.js && node --check src/education.js && node --check public/app.js && node --check public/education.js",
+    "test": "node --test test/*.test.js && node --check server.js && node --check src/ai-content.js && node --check src/stage2-learning.js && node --check src/adaptive-engine.js && node --check src/hybrid-retrieval.js && node --check src/exam-engine.js && node --check src/exam-blueprint.js && node --check src/education.js && node --check public/app.js && node --check public/education.js",
     "test:unit": "node --test test/*.test.js",
-    "test:syntax": "node --check server.js && node --check src/ai-content.js && node --check src/stage2-learning.js && node --check src/exam-engine.js && node --check src/education.js && node --check public/app.js && node --check public/education.js",
+    "test:syntax": "node --check server.js && node --check src/ai-content.js && node --check src/stage2-learning.js && node --check src/adaptive-engine.js && node --check src/hybrid-retrieval.js && node --check src/exam-engine.js && node --check src/exam-blueprint.js && node --check src/education.js && node --check public/app.js && node --check public/education.js",
     "test:e2e": "node test/e2e-smoke.test.js",
     "db:migrate": "node scripts/migrate.js"
   },
