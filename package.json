@@ -1,23 +1,17 @@
 {
   "name": "eduai-platform",
-  "version": "2.0.0",
+  "version": "4.0.0",
   "private": false,
-  "description": "Arabic-first commercial educational AI platform with teacher, student, tenant, learning progress, and OpenAI capabilities.",
+  "description": "Commercial educational AI platform with adaptive learning, RAG-ready content, assessments, billing, multi-tenancy and enterprise foundations.",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "test": "node --test test/*.test.js && node --check server.js && node --check public/app.js && node --check public/education.js",
+    "start": "node src/launcher.js",
+    "test": "node --test test/*.test.js && node --check server.js && node --check src/platform-v2.js && node --check src/launcher.js && node --check public/app.js && node --check public/education.js",
     "test:unit": "node --test test/*.test.js",
-    "test:syntax": "node --check server.js && node --check public/app.js && node --check public/education.js",
+    "test:syntax": "node --check server.js && node --check src/platform-v2.js && node --check src/launcher.js && node --check public/app.js && node --check public/education.js",
     "test:e2e": "node test/e2e-smoke.test.js",
     "db:migrate": "node scripts/migrate.js"
   },
-  "engines": {
-    "node": ">=20"
-  },
-  "dependencies": {
-    "express": "^5.1.0",
-    "openai": "^5.12.2",
-    "pg": "^8.16.3"
-  }
+  "engines": { "node": ">=20" },
+  "dependencies": { "express": "^5.1.0", "openai": "^5.12.2", "pg": "^8.16.3" }
 }
