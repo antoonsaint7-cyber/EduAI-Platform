@@ -2,33 +2,62 @@
 
 **Commercial Educational AI Platform / Source Code** لبناء منصات EdTech للمدرسين والطلاب والمدارس.
 
-## 🚀 الإصدار 4.0
+## 🚀 الإصدار 4.2+
 
-EduAI انتقل من Commercial Educational AI Starter إلى قاعدة أقوى لبناء منتج EdTech تجاري، مع مسار واضح من V2 إلى V4.
+EduAI أصبح قاعدة متقدمة لبناء منتج EdTech تجاري، مع Adaptive Learning وRAG وAdvanced Exams وEnterprise SaaS controls وIntegrations.
 
-### V2 — Adaptive Learning + RAG + Advanced Assessment
-- AI Lesson/Course/Quiz generation.
-- Server-side grading وتحديث Mastery.
-- Topic-level mastery مع توصيات تعلم تكيفية.
-- Tenant-isolated document ingestion وتقسيم المصادر إلى chunks.
-- Retrieval API للمصادر التعليمية قبل دمجها مع توليد AI.
-- 4 لغات للواجهة: العربية، English، Français، Español مع RTL/LTR.
+### 🧠 Adaptive Learning & Student Intelligence
+- Diagnostic assessment → Knowledge Profile → Weak Concepts → Personalized Content → Adaptive Questions → Mastery → Next Learning Path.
+- Topic/skill mastery مع توصيات تعلم تكيفية.
+- اختيار السؤال التالي حسب مستوى الطالب.
+- Dynamic learning paths.
 
-### V3 — School Management + Billing
-- Admin role وtenant administration APIs.
-- خطط Free / Teacher / School / Enterprise.
-- Subscription وusage counters وentitlements في PostgreSQL.
-- Stripe Checkout session endpoint عند ضبط مفاتيح Stripe وأسعار المنتجات.
-- Stripe webhook foundation مع توقيع وidempotency.
+### 📚 RAG
+- Tenant-isolated ingestion/chunking foundation.
+- Metadata filtering وcitations.
+- Hybrid retrieval foundation.
+- Grounded-answer prompting لتقليل hallucination قدر الإمكان.
+- Async processing architecture للملفات الكبيرة عبر Queue/Worker.
+- Production deployments يمكنها استخدام PostgreSQL + pgvector.
 
-### V4 — Enterprise Security + Multi-Tenancy + Deployment
-- Multi-tenant data model وعزل بالـtenant_id.
-- Audit logs للعمليات الإدارية والتعليمية الحساسة.
-- Session security وpassword hashing وrate limiting وsecurity headers.
-- Docker production image وDocker Compose لتشغيل التطبيق مع PostgreSQL.
-- فصل platform routes عن server الأساسي عبر production launcher.
+### 📝 Advanced Exams
+- Question bank.
+- MCQ / True-False / Short Answer / Essay / Matching foundations.
+- Difficulty وrandomization.
+- Exam blueprints.
+- Automatic grading.
+- Rubric-ready assessment flow.
+- Analytics وربط النتائج بالـMastery.
 
-## 🧑‍🏫 Teacher / Student
+### 🏫 Enterprise SaaS
+- Multi-tenancy وعزل البيانات بالـtenant_id.
+- RBAC: SuperAdmin / SchoolAdmin / Teacher / Student.
+- AI usage quotas حسب الخطة والـtenant.
+- White-label branding: logo/colors/favicon.
+- Custom-domain validation وtenant host resolution.
+- Plans / subscriptions / entitlements foundation.
+
+### 👨‍👩‍👧 Engagement & Student Experience
+- Parent Portal foundation لمتابعة تقدم الطالب والتقييمات والتنبيهات والاشتراك.
+- Gamification: XP / Levels / Badges / streaks.
+- Exam integrity/proctoring event model وrisk scoring.
+- Voice Tutor service contract لـSTT/TTS.
+
+### ⚡ Performance & Async Architecture
+- SSE streaming foundation لاستجابات AI التدريجية.
+- Redis caching وdistributed rate limiting.
+- BullMQ queue/worker architecture للمهام الخلفية.
+- فصل API عن workers لمعالجة RAG والمهام الثقيلة.
+
+### 🔗 Integrations
+- LTI 1.3 launch-context foundation.
+- SCORM 1.2 / 2004 adapter foundation.
+- LMS adapter contracts لـMoodle / Canvas / Google Classroom.
+- Payment adapter abstraction لـStripe / Paymob / Fawry / Tap.
+- Bulk student-data validation/import foundation.
+- Export contracts لـJSON / CSV / XLSX / PDF.
+
+## 👨‍🏫 Teacher / Student
 - Teacher Dashboard لإنشاء ومراجعة ونشر المحتوى.
 - Student Dashboard للتعلم والاختبارات والتقدم.
 - AI Tutor للشرح والمراجعة وخطط المذاكرة.
@@ -41,7 +70,7 @@ EduAI انتقل من Commercial Educational AI Starter إلى قاعدة أقو
 - 🇫🇷 Français
 - 🇪🇸 Español
 
-اللغة محفوظة محليًا، والعربية تستخدم RTL واللغات الأخرى LTR. دعم لغة AI نفسها يعتمد على prompt/model configuration.
+العربية تستخدم RTL واللغات الأخرى LTR. دعم لغة AI نفسها يعتمد على prompt/model configuration.
 
 ## 🏗️ Architecture
 
@@ -49,21 +78,24 @@ EduAI انتقل من Commercial Educational AI Starter إلى قاعدة أقو
 Web UI
   ↓
 Express API
-  ├── Auth / Sessions
-  ├── Teacher / Student / Admin
-  ├── AI Tutor + Content Generation
-  ├── Adaptive Learning / Mastery
-  ├── RAG ingestion + retrieval
-  ├── Assessments / Grading
-  ├── Billing / Entitlements
+  ├── Auth / RBAC / Multi-tenancy
+  ├── Teacher / Student / Parent / Admin
+  ├── AI Tutor + Content Generation + SSE
+  ├── Adaptive Learning / Student Intelligence / Mastery
+  ├── RAG ingestion → Queue → Worker → Retrieval
+  ├── Assessments / Exams / Grading / Integrity
+  ├── Billing / Entitlements / Usage Quotas
+  ├── Integrations / LMS / Payments
   └── Audit / Security
         ↓
-PostgreSQL
+PostgreSQL + pgvector
+        ↕
+ Redis / BullMQ Workers
 ```
 
 ## 🚀 تشغيل محلي
 
-المتطلبات: Node.js 20+ وPostgreSQL.
+المتطلبات: Node.js 20+ وPostgreSQL. ولتشغيل queues/caching في بيئة كاملة، استخدم Redis.
 
 ```bash
 npm install
@@ -88,6 +120,7 @@ PORT=3000
 DATABASE_URL=postgresql://user:password@localhost:5432/eduai
 OPENAI_API_KEY=your_key
 OPENAI_MODEL=gpt-5-mini
+REDIS_URL=redis://localhost:6379
 STRIPE_SECRET_KEY=your_key
 STRIPE_WEBHOOK_SECRET=your_webhook_secret
 STRIPE_SUCCESS_URL=https://your-domain.example/billing/success
@@ -110,12 +143,16 @@ GitHub Actions يشغّل الاختبارات وAPI smoke وeducational evaluat
 
 - Source code كامل قابل للتخصيص.
 - AI Tutor وAI content generation.
-- Adaptive learning / mastery foundation.
-- RAG-ready document ingestion and retrieval foundation.
-- Advanced assessment + grading.
-- Teacher / Student / Admin foundations.
+- Adaptive Learning / Student Intelligence foundation.
+- RAG ingestion/retrieval + citations foundation.
+- Advanced assessment + grading + exam integrity foundations.
+- Parent Portal + Gamification foundations.
+- Teacher / Student / Parent / Admin foundations.
+- SSE + Redis + BullMQ architecture.
+- Multi-tenancy + RBAC + usage quotas.
+- White-label + custom-domain foundations.
+- LTI/SCORM/LMS/payment integration adapters.
 - Analytics.
-- Multi-tenancy.
 - Billing / subscription / entitlement foundation.
 - Authentication وsecurity foundation وaudit logs.
 - Docker deployment artifacts.
@@ -124,9 +161,11 @@ GitHub Actions يشغّل الاختبارات وAPI smoke وeducational evaluat
 
 ## ⚠️ Production boundary
 
-وجود الـfoundation في الكود لا يعني أن SaaS Production أصبح مكتملًا تلقائيًا. قبل استخدام بيانات طلاب حقيقية يجب إعداد managed PostgreSQL/backups، Secret Manager، email verification/reset، MFA حسب السياسة، تخزين ملفات آمن، monitoring/alerts، load/security testing، runbooks، ومراجعة privacy/security مستقلة.
+وجود الـfoundation في الكود لا يعني أن SaaS Production أصبح مكتملًا تلقائيًا. قبل استخدام بيانات طلاب حقيقية يجب إعداد managed PostgreSQL/pgvector وbackups، Redis production، Secret Manager، object storage وmalware scanning للملفات، email verification/reset، MFA حسب السياسة، monitoring/alerts، load/security testing، runbooks، ومراجعة privacy/security مستقلة.
 
-Stripe يحتاج Products/Prices ومفاتيح حقيقية، وRAG للملفات غير النصية يحتاج extraction/virus scanning/storage production مناسب.
+LTI/SCORM وMoodle/Canvas/Google Classroom وPaymob/Fawry/Tap تحتاج credentials وsandbox/production configuration لكل مزود. STT/TTS وproctoring/plagiarism تحتاج مزودي الخدمة أو integrations المناسبة. XLSX/PDF exporters الكاملة تحتاج تنفيذ exporter فعلي عند تفعيلها.
+
+Stripe يحتاج Products/Prices ومفاتيح حقيقية، وRAG للملفات غير النصية يحتاج extraction pipeline production مناسب.
 
 ## 💼 Commercial License
 
@@ -136,17 +175,23 @@ Stripe يحتاج Products/Prices ومفاتيح حقيقية، وRAG للملف
 
 ## 🗺️ Roadmap
 
-- [x] V2 Adaptive Learning + RAG-ready retrieval + Advanced Assessment
-- [x] V3 School/Admin + Billing/Entitlements foundation
-- [x] V4 Enterprise security/audit + Multi-tenancy + Docker deployment
+- [x] Adaptive Learning + Student Intelligence foundation
+- [x] RAG retrieval/chunking + async worker architecture
+- [x] Advanced Exams + grading + integrity foundation
+- [x] Parent Portal + Gamification + Voice Tutor contracts
+- [x] SSE + Redis + BullMQ architecture
+- [x] LTI/SCORM/LMS/payment integration foundations
+- [x] Enterprise RBAC + quotas + white-label + custom domains foundation
 - [ ] Production managed infrastructure
-- [ ] Full PDF/DOCX/PPTX extraction worker + malware scanning + object storage
-- [ ] Stripe webhook → subscription state synchronization and automated entitlement lifecycle
+- [ ] Full PDF/DOCX/PPTX extraction + malware scanning + object storage
+- [ ] Full external-provider integrations and credentials
+- [ ] Complete XLSX/PDF exporters
 - [ ] Full E2E registration → learning → assessment → billing flow
+- [ ] Live public demo deployment
 - [ ] Independent security/privacy review
 
 ## 📌 Product positioning
 
-**EduAI Platform — Commercial Educational AI Platform / Source Code**
+**EduAI Platform — Commercial Educational AI Platform / Enterprise EdTech Foundation**
 
 قاعدة قابلة للتخصيص للمطورين وشركات EdTech والمدارس، مع فصل واضح بين قدرات الكود الحالية ومتطلبات تشغيل SaaS Production.
