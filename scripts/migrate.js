@@ -4,8 +4,11 @@ const { query, close } = require('../src/db');
 
 (async () => {
   try {
-    const schema = await fs.readFile(path.join(__dirname, '..', 'db', 'schema.sql'), 'utf8');
-    await query(schema);
+    for (const file of ['schema.sql', 'platform-v2.sql']) {
+      const sql = await fs.readFile(path.join(__dirname, '..', 'db', file), 'utf8');
+      await query(sql);
+      console.log(`Applied ${file}`);
+    }
     console.log('Database migration completed.');
   } catch (error) {
     console.error(error?.message || error);
