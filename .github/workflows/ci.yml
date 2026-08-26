@@ -19,11 +19,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup Node
-        uses: actions/setup-node@v7
-        with:
-          node-version: 24.x
-          cache: npm
+      # GitHub-hosted Ubuntu runners include a supported Node.js runtime.
+      # Avoid setup-node here because the repository's CI environment was
+      # failing before any project command could execute.
+      - name: Verify Node and npm
+        run: |
+          node --version
+          npm --version
 
       - name: Install dependencies
         run: npm install
