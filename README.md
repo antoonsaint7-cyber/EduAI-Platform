@@ -6,7 +6,7 @@
 
 ## لماذا EduAI؟
 
-نواة عملية تجمع بين الذكاء الاصطناعي، إدارة الدروس، أدوار المدرس والطالب، وتتبع التقدم في مشروع واحد قابل للتخصيص. الهدف هو اختصار وقت بناء الـMVP والنواة الخلفية لمنصة EdTech بدل البدء من الصفر.
+نواة عملية تجمع بين الذكاء الاصطناعي، إدارة الدروس، أدوار المدرس والطالب، الاختبارات، وتتبع التقدم في مشروع واحد قابل للتخصيص. الهدف هو اختصار وقت بناء الـMVP والنواة الخلفية لمنصة EdTech بدل البدء من الصفر.
 
 ## ✨ الميزات الموجودة حاليًا
 
@@ -17,13 +17,33 @@
 - حماية من التعامل مع محتوى المنهج كتعليمات نظام.
 - Speech Recognition وText-to-Speech داخل المتصفح كميزات اختيارية.
 
+### ✦ AI Lesson & Course Generator
+- توليد درس منظم بأهداف وأقسام وأمثلة وأسئلة مراجعة.
+- توليد خطة كورس من 3 إلى 8 دروس.
+- حفظ مخرجات الكورس كمسودات دروس للمراجعة قبل النشر.
+- دعم إدخال مصدر تعليمي اختياري لتحسين الملاءمة.
+
+### 📝 AI Quiz Generator
+- توليد اختبارات من 5 إلى 15 سؤالًا من محتوى الدرس.
+- أنواع أسئلة قابلة للتصحيح تلقائيًا.
+- حفظ الاختبار في PostgreSQL.
+- تصحيح server-side وإرجاع النتيجة والتفسير.
+- تحديث Mastery تلقائيًا بعد محاولة الطالب.
+
 ### 👨‍🏫 Teacher & 👨‍🎓 Student
 - أدوار teacher/student.
 - جلسات HttpOnly مع token عشوائي مخزن كـhash.
-- Dashboard أساسية.
+- Teacher Dashboard موسعة للمحتوى والاختبارات والتحليلات.
+- Student Dashboard للتعلم والاختبارات والتقدم.
 - دورة الدرس: إنشاء → review → publish.
-- الطالب يصل إلى الدروس المنشورة.
-- تسجيل المحاولات والدرجات وبيانات mastery ضمن النواة الحالية.
+- الطالب يصل إلى الدروس المنشورة فقط.
+
+### 📊 Learning Analytics
+- متوسط Mastery للمؤسسة.
+- عدد الدروس والطلاب وحالة المحتوى.
+- تحديد الطلاب ذوي الإتقان المنخفض.
+- مؤشرات حسب المادة.
+- للطالب: الدروس التي بدأها، متوسط الإتقان، أفضل درجة، وعدد المحاولات.
 
 ### 🏢 Multi-tenant Foundation
 - مخطط PostgreSQL للمؤسسات والمستخدمين والدروس والتقييمات والتقدم.
@@ -33,13 +53,13 @@
 ### 🔐 Security Foundation
 - لا توجد API secrets داخل الواجهة أو المستودع.
 - Password hashing باستخدام Node.js `scrypt` مع salt عشوائي.
-- Rate limiting لنقاط auth/chat/write الحالية.
+- Rate limiting لنقاط auth/chat/write/AI الحالية.
 - Security headers وHSTS في production.
 - التحقق من نوع وحجم المدخلات.
 - التحقق من توقيع Stripe webhook وآلية idempotency في النواة الحالية.
 
 ### 🧪 Engineering
-- Unit tests.
+- Unit tests للوظائف الأساسية ومخرجات AI JSON normalization.
 - API smoke test.
 - Offline educational evaluations.
 - GitHub Actions CI.
@@ -47,17 +67,16 @@
 
 ## 🖥️ الواجهات الحالية
 
-- `/` — الصفحة الرئيسية.
+- `/` — الصفحة الرئيسية والمساعد الذكي.
 - `/education.html` — الواجهة التعليمية.
-- `/dashboard.html` — Dashboard.
-
-> صور Demo ولقطات الشاشة تُضاف عند تجهيز النسخة التسويقية النهائية.
+- `/dashboard.html` — Teacher/Student Dashboard.
 
 ## 🚀 التشغيل محليًا
 
 ### المتطلبات
 - Node.js 20+
 - PostgreSQL
+- OpenAI API key لميزات التوليد والمحادثة.
 
 ```bash
 npm install
@@ -97,10 +116,12 @@ GitHub Actions يشغّل اختبارات المشروع وAPI smoke وeducatio
 
 - Source code للمشروع.
 - AI Tutor foundation.
-- Teacher/Student foundation.
+- AI Lesson/Course Generator.
+- AI Quiz Generator مع server-side grading.
+- Teacher/Student Dashboard.
+- Learning Analytics وMastery foundation.
 - PostgreSQL schema وmulti-tenant foundation.
 - Authentication وsecurity foundation.
-- Progress/Mastery foundation.
 - Automated tests وCI.
 - إمكانية تخصيص الكود وإضافة خدمات الإنتاج حسب احتياج المشروع.
 
@@ -126,15 +147,16 @@ GitHub Actions يشغّل اختبارات المشروع وAPI smoke وeducatio
 
 ### المرحلة الحالية
 - [x] AI Tutor foundation
-- [x] Teacher/Student foundation
+- [x] AI Lesson/Course Generator
+- [x] AI Quiz Generator + grading
+- [x] Teacher/Student Dashboard
+- [x] Learning Analytics foundation
 - [x] PostgreSQL foundation
 - [x] Authentication & security foundation
 - [x] Tests & CI
 
 ### المرحلة التالية
-- [ ] إكمال Teacher UI.
-- [ ] إكمال Student UI.
-- [ ] Admin/organization management.
+- [ ] Admin/organization management الكامل.
 - [ ] Billing & subscription entitlements.
 - [ ] Production deployment.
 - [ ] Monitoring, backups, security/load testing.
