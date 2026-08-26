@@ -22,7 +22,7 @@ test('enterprise controls enforce quotas, RBAC and tenant isolation', () => {
   assert.equal(validateCustomDomain('school.example.com'), 'school.example.com');
 });
 
-test('integration contracts validate inputs', () => {
+test('integration contracts validate inputs', async () => {
   assert.deepEqual(validateBulkRows([{ name: 'Student', email: ' STUDENT@Example.com ' }])[0], { name: 'Student', email: 'student@example.com', externalId: null });
   assert.equal(mapLtiRole('Instructor'), 'Teacher');
   assert.equal(normalizeScormScore(120), 100);
