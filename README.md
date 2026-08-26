@@ -1,47 +1,51 @@
 # EduAI Platform 🎓🤖
 
-منصة تعليمية عربية تعتمد على الذكاء الاصطناعي، مع نواة قابلة للتوسع للمدرس والطالب والمؤسسات.
+منصة تعليمية عربية تعتمد على الذكاء الاصطناعي، مبنية كنواة قابلة للتوسع للمدرس والطالب والمؤسسات.
 
-> **Commercial Source Code**: لا توجد مفاتيح API أو بيانات إنتاج داخل المستودع. كل عميل يستخدم credentials والبنية التحتية الخاصة به.
+> **Commercial Source Code**: المستودع لا يحتوي على مفاتيح API أو بيانات إنتاج. بيانات الاعتماد والبنية التحتية الخاصة بالإنتاج يتم توفيرها من العميل.
 
-## ما تم تنفيذه
+## الحالة الفعلية للمشروع
+
+هذه النسخة هي **Educational AI Starter / Source Code** وليست SaaS Production مكتملة. الوصف أدناه يقتصر على ما هو موجود في المستودع ويمكن اختباره حاليًا، بينما متطلبات الإنتاج موضحة في قسم منفصل.
+
+## ما تم تنفيذه حاليًا
 
 ### 🤖 AI Tutor
-- OpenAI Responses API على الخادم فقط.
-- تعليم عربي وسياق محادثة محدود وآمن.
-- Student/Teacher prompting منفصل داخل `src/education.js`.
-- حماية من اعتبار محتوى المنهج تعليمات للنظام.
-- Speech Recognition وText-to-Speech في المتصفح.
+- تكامل OpenAI Responses API من الخادم.
+- محادثة تعليمية مع حدود لحجم المدخلات والسياق.
+- Prompts تعليمية منفصلة للطالب والمدرس.
+- حماية من التعامل مع محتوى المنهج كتعليمات نظام.
+- Speech Recognition وText-to-Speech داخل المتصفح كميزات اختيارية.
 
 ### 👨‍🏫 Teacher / 👨‍🎓 Student
-- حسابات وصلاحيات teacher/student.
-- جلسات HttpOnly موقعة بتوكن عشوائي مخزن كـhash.
-- لوحة Dashboard بسيطة.
-- إنشاء درس → review → publish.
-- الطالب يرى الدروس المنشورة فقط.
-- تسجيل درجات ومحاولات وMastery.
+- حسابات وأدوار teacher/student.
+- جلسات HttpOnly مع token عشوائي مخزن كـhash.
+- Dashboard أساسية.
+- دورة الدرس: إنشاء → review → publish.
+- الطالب يستطيع الوصول إلى الدروس المنشورة.
+- تسجيل محاولات ودرجات وبيانات mastery ضمن النواة الحالية.
 
 ### 🏢 Multi-tenant foundation
-- PostgreSQL schema للمؤسسات والمستخدمين والدروس والتقييمات والتقدم.
-- كل عمليات الدروس والتقدم مقيدة بـ`tenant_id`.
-- معاملات قاعدة البيانات أثناء إنشاء المؤسسة والحساب.
+- مخطط PostgreSQL للمؤسسات والمستخدمين والدروس والتقييمات والتقدم.
+- عمليات التعليم والتقدم الحالية مرتبطة بـ`tenant_id`.
+- معاملات قاعدة البيانات للعمليات التي تتطلب اتساقًا بين أكثر من سجل.
 
 ### 🔐 Security
-- لا secrets داخل الكود أو الواجهة.
+- عدم تضمين API secrets داخل الواجهة أو المستودع.
 - Password hashing باستخدام Node.js `scrypt` مع salt عشوائي.
-- Rate limiting للـauth/chat/write APIs.
+- Rate limiting لنقاط auth/chat/write الحالية.
 - Security headers وHSTS في production.
-- Input length/type validation.
-- Stripe webhook signature verification + idempotency table.
+- التحقق من نوع وحجم المدخلات.
+- التحقق من توقيع Stripe webhook ووجود آلية idempotency في النواة الحالية.
 
 ### 🧪 Engineering
-- Unit tests حقيقية للـprompting وpassword hashing.
+- Unit tests للوظائف الأساسية.
 - API smoke test.
-- Offline educational evals.
+- Offline educational evaluations.
 - GitHub Actions CI.
 - Dependency audit.
 
-## التشغيل
+## التشغيل محليًا
 
 المتطلبات: Node.js 20+ وPostgreSQL.
 
@@ -54,13 +58,14 @@ npm start
 
 ثم افتح `http://localhost:3000`.
 
-- المساعد: `/`
-- التعليم: `/education.html`
-- لوحة التحكم: `/dashboard.html`
+المسارات الحالية:
+- `/` للواجهة الرئيسية.
+- `/education.html` للواجهة التعليمية.
+- `/dashboard.html` للـDashboard.
 
 ## Environment
 
-استخدم `.env.example` كقالب. لا تضع أسرارًا في Git.
+استخدم `.env.example` كقالب ولا تضع الأسرار في Git.
 
 المتغيرات الأساسية:
 
@@ -81,27 +86,30 @@ npm run test:e2e
 node evals/run-evals.mjs
 ```
 
-الـCI يشغّل الاختبارات وAPI smoke وeducational evals و`npm audit`.
+GitHub Actions يشغّل الاختبارات وAPI smoke وeducational evaluations وdependency audit.
 
-## الإنتاج
+## ما يحتاج إعداد Production فعلي
 
-قبل أي Production deployment يجب توفير:
+هذه البنود **ليست مكونات SaaS مكتملة بمجرد وجود إعداداتها في `.env`**. قبل تشغيل المنصة كخدمة تجارية Production يجب تنفيذ وربط ما يلزم منها:
 
-1. PostgreSQL managed + encrypted backups.
+1. PostgreSQL مُدار مع encrypted backups واختبار restore.
 2. HTTPS وSecret Manager.
-3. Email provider لتنفيذ email verification/password reset فعليًا.
-4. MFA/TOTP إذا كان مطلوبًا للـtenant policy.
-5. Stripe products/prices وربط أحداث الاشتراك بالـtenant entitlement.
+3. Email provider فعلي لـemail verification وpassword reset.
+4. MFA/TOTP إذا كانت سياسة المؤسسة تتطلبه.
+5. Stripe products/prices وربط أحداث الاشتراك فعليًا بصلاحيات المؤسسة.
 6. S3-compatible storage إذا تم تفعيل رفع المستندات، مع file validation وvirus scanning.
-7. OpenTelemetry/monitoring/alerts وload/security testing.
-8. Runbook للـbackup/restore وrollback.
+7. OpenTelemetry وmonitoring وalerts، بالإضافة إلى load/security testing.
+8. Runbook للـbackup/restore والـrollback.
+9. مراجعة أمنية مستقلة قبل تعريض النظام لبيانات طلاب حقيقية.
 
-هذه الخدمات **ليست مزيفة داخل الكود**: لا يتم الادعاء بأنها تعمل قبل ربط البنية التحتية والcredentials الخاصة بالعميل.
+## طريقة تسويق المشروع
 
-## المنتج عند البيع
+الوصف الدقيق للبيع هو:
 
-النسخة مناسبة كـ**Commercial Educational AI Starter / Source Code**. لا تُسوّقها كـSaaS production مكتمل قبل تنفيذ متطلبات قسم الإنتاج أعلاه.
+**EduAI Platform — Commercial Educational AI Starter / Source Code**
+
+يمكن استخدامه كنواة لبناء منصة تعليمية تجارية، لكن لا ينبغي تقديمه على أنه SaaS Production مكتمل قبل تنفيذ متطلبات الإنتاج المذكورة أعلاه.
 
 ## License
 
-أضف Commercial License واضحة قبل التوزيع التجاري، تحدد الاستخدام وإعادة التوزيع وإعادة البيع والحدود الخاصة بالمستخدمين والمؤسسات.
+قبل التوزيع التجاري، أضف Commercial License واضحة تحدد الاستخدام وإعادة التوزيع وإعادة البيع وحدود المستخدمين والمؤسسات.
