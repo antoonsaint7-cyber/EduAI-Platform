@@ -1,14 +1,3 @@
-export const PAYMENT_PROVIDERS = Object.freeze(['stripe', 'paymob', 'fawry', 'tap']);
-
-export function createPaymentAdapter(provider, config = {}) {
-  if (!PAYMENT_PROVIDERS.includes(provider)) throw new Error(`Unsupported payment provider: ${provider}`);
-  return {
-    provider,
-    configured: Boolean(config.apiKey),
-    currency: config.currency ?? 'USD',
-    async createCheckout({ amount, currency = this.currency, reference } = {}) {
-      if (!(Number(amount) > 0) || !reference) throw new Error('amount and reference are required');
-      return { provider: this.provider, amount: Number(amount), currency, reference, status: 'pending' };
-    }
-  };
-}
+const PAYMENT_PROVIDERS = Object.freeze(['stripe', 'paymob', 'fawry', 'tap']);
+function createPaymentAdapter(provider, config = {}) { if (!PAYMENT_PROVIDERS.includes(provider)) throw new Error(`Unsupported payment provider: ${provider}`); return { provider, configured: Boolean(config.apiKey), currency: config.currency || 'USD', async createCheckout({ amount, currency, reference } = {}) { if (!(Number(amount) > 0) || !reference) throw new Error('amount and reference are required'); return { provider: this.provider, amount: Number(amount), currency: currency || this.currency, reference, status: 'pending' }; } }; }
+module.exports = { PAYMENT_PROVIDERS, createPaymentAdapter };
