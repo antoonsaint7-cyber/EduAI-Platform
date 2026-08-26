@@ -1,35 +1,47 @@
 # EduAI Platform 🎓🤖
 
-**Commercial Educational AI Platform / Source Code** لبناء منصات EdTech للمدرسين والطلاب والمدارس.
+**Commercial Educational AI Platform / Enterprise EdTech Foundation** لبناء منصات تعليمية ذكية للطلاب والمدرسين والمدارس.
 
 ## 🚀 الإصدار 4.2+
 
-EduAI أصبح قاعدة متقدمة لبناء منتج EdTech تجاري، مع Adaptive Learning وRAG وAdvanced Exams وEnterprise SaaS controls وIntegrations.
+EduAI هو **Source Code تجاري قابل للتخصيص**، وليس SaaS مستضافًا جاهزًا. يجمع بين Adaptive Learning وStudent Intelligence وRAG وAdvanced Exams وEnterprise SaaS وIntegrations وطبقات الأداء والتشغيل غير المتزامن.
 
-### 🧠 Adaptive Learning & Student Intelligence
-- Diagnostic assessment → Knowledge Profile → Weak Concepts → Personalized Content → Adaptive Questions → Mastery → Next Learning Path.
-- Topic/skill mastery مع توصيات تعلم تكيفية.
+## 🧠 Adaptive Learning & Student Intelligence
+- Diagnostic Assessment → Knowledge Profile → Weak Concepts → Personalized Content → Adaptive Questions → Mastery → Next Learning Path.
+- Topic/Skill mastery وتوصيات تعلم تكيفية.
 - اختيار السؤال التالي حسب مستوى الطالب.
-- Dynamic learning paths.
+- Dynamic Learning Paths.
 
-### 📚 RAG
+## 📚 RAG & Knowledge Retrieval
 - Tenant-isolated ingestion/chunking foundation.
 - Metadata filtering وcitations.
 - Hybrid retrieval foundation.
 - Grounded-answer prompting لتقليل hallucination قدر الإمكان.
-- Async processing architecture للملفات الكبيرة عبر Queue/Worker.
-- Production deployments يمكنها استخدام PostgreSQL + pgvector.
+- Async Queue/Worker architecture للملفات الكبيرة.
+- PostgreSQL + pgvector كخيار Vector DB في بيئة Production.
 
-### 📝 Advanced Exams
-- Question bank.
+## 📝 Advanced Exams
+- Question Bank.
 - MCQ / True-False / Short Answer / Essay / Matching foundations.
 - Difficulty وrandomization.
-- Exam blueprints.
+- Exam Blueprints.
 - Automatic grading.
 - Rubric-ready assessment flow.
 - Analytics وربط النتائج بالـMastery.
 
-### 🏫 Enterprise SaaS
+## 👨‍👩‍👧 Engagement
+- Parent Portal foundation لمتابعة تقدم الطالب والتقييمات والتنبيهات والاشتراك.
+- Gamification: XP / Levels / Badges / streaks.
+- Exam integrity/proctoring event model وrisk scoring.
+- Voice Tutor contract لـSTT/TTS.
+
+## ⚡ Performance & Async Architecture
+- SSE streaming foundation لاستجابات AI التدريجية.
+- Redis caching وdistributed rate limiting.
+- BullMQ queue/worker architecture.
+- فصل API عن Workers للمهام الثقيلة.
+
+## 🏢 Enterprise SaaS
 - Multi-tenancy وعزل البيانات بالـtenant_id.
 - RBAC: SuperAdmin / SchoolAdmin / Teacher / Student.
 - AI usage quotas حسب الخطة والـtenant.
@@ -37,19 +49,7 @@ EduAI أصبح قاعدة متقدمة لبناء منتج EdTech تجاري، �
 - Custom-domain validation وtenant host resolution.
 - Plans / subscriptions / entitlements foundation.
 
-### 👨‍👩‍👧 Engagement & Student Experience
-- Parent Portal foundation لمتابعة تقدم الطالب والتقييمات والتنبيهات والاشتراك.
-- Gamification: XP / Levels / Badges / streaks.
-- Exam integrity/proctoring event model وrisk scoring.
-- Voice Tutor service contract لـSTT/TTS.
-
-### ⚡ Performance & Async Architecture
-- SSE streaming foundation لاستجابات AI التدريجية.
-- Redis caching وdistributed rate limiting.
-- BullMQ queue/worker architecture للمهام الخلفية.
-- فصل API عن workers لمعالجة RAG والمهام الثقيلة.
-
-### 🔗 Integrations
+## 🔗 Integrations
 - LTI 1.3 launch-context foundation.
 - SCORM 1.2 / 2004 adapter foundation.
 - LMS adapter contracts لـMoodle / Canvas / Google Classroom.
@@ -57,9 +57,11 @@ EduAI أصبح قاعدة متقدمة لبناء منتج EdTech تجاري، �
 - Bulk student-data validation/import foundation.
 - Export contracts لـJSON / CSV / XLSX / PDF.
 
-## 👨‍🏫 Teacher / Student
+## 👨‍🏫 Teacher / Student / Parent / Admin
 - Teacher Dashboard لإنشاء ومراجعة ونشر المحتوى.
 - Student Dashboard للتعلم والاختبارات والتقدم.
+- Parent experience لمتابعة الطالب.
+- Admin وSchool Admin foundations.
 - AI Tutor للشرح والمراجعة وخطط المذاكرة.
 - Analytics للمؤسسة والطالب.
 
@@ -70,7 +72,7 @@ EduAI أصبح قاعدة متقدمة لبناء منتج EdTech تجاري، �
 - 🇫🇷 Français
 - 🇪🇸 Español
 
-العربية تستخدم RTL واللغات الأخرى LTR. دعم لغة AI نفسها يعتمد على prompt/model configuration.
+العربية RTL واللغات الأخرى LTR. دعم لغة AI يعتمد على prompt/model configuration.
 
 ## 🏗️ Architecture
 
@@ -90,12 +92,12 @@ Express API
         ↓
 PostgreSQL + pgvector
         ↕
- Redis / BullMQ Workers
+Redis / BullMQ Workers
 ```
 
 ## 🚀 تشغيل محلي
 
-المتطلبات: Node.js 20+ وPostgreSQL. ولتشغيل queues/caching في بيئة كاملة، استخدم Redis.
+المتطلبات: Node.js 20+ وPostgreSQL. لتفعيل queues/caching استخدم Redis.
 
 ```bash
 npm install
@@ -141,13 +143,12 @@ GitHub Actions يشغّل الاختبارات وAPI smoke وeducational evaluat
 
 ## 📦 ماذا يحصل عليه المشتري؟
 
-- Source code كامل قابل للتخصيص.
+- Source code قابل للتخصيص.
 - AI Tutor وAI content generation.
 - Adaptive Learning / Student Intelligence foundation.
 - RAG ingestion/retrieval + citations foundation.
 - Advanced assessment + grading + exam integrity foundations.
-- Parent Portal + Gamification foundations.
-- Teacher / Student / Parent / Admin foundations.
+- Parent Portal + Gamification + Voice Tutor foundations.
 - SSE + Redis + BullMQ architecture.
 - Multi-tenancy + RBAC + usage quotas.
 - White-label + custom-domain foundations.
@@ -159,9 +160,9 @@ GitHub Actions يشغّل الاختبارات وAPI smoke وeducational evaluat
 - Tests وCI.
 - 4-language UI foundation.
 
-## ⚠️ Production boundary
+## ⚠️ Production Boundary
 
-وجود الـfoundation في الكود لا يعني أن SaaS Production أصبح مكتملًا تلقائيًا. قبل استخدام بيانات طلاب حقيقية يجب إعداد managed PostgreSQL/pgvector وbackups، Redis production، Secret Manager، object storage وmalware scanning للملفات، email verification/reset، MFA حسب السياسة، monitoring/alerts، load/security testing، runbooks، ومراجعة privacy/security مستقلة.
+**EduAI ليس SaaS Production مستضافًا بمجرد تحميل الكود.** قبل استخدام بيانات طلاب حقيقية يجب إعداد managed PostgreSQL/pgvector وbackups، Redis production، Secret Manager، object storage وmalware scanning، email verification/reset، MFA حسب السياسة، monitoring/alerts، load/security testing، runbooks، ومراجعة privacy/security مستقلة.
 
 LTI/SCORM وMoodle/Canvas/Google Classroom وPaymob/Fawry/Tap تحتاج credentials وsandbox/production configuration لكل مزود. STT/TTS وproctoring/plagiarism تحتاج مزودي الخدمة أو integrations المناسبة. XLSX/PDF exporters الكاملة تحتاج تنفيذ exporter فعلي عند تفعيلها.
 
@@ -190,7 +191,7 @@ Stripe يحتاج Products/Prices ومفاتيح حقيقية، وRAG للملف
 - [ ] Live public demo deployment
 - [ ] Independent security/privacy review
 
-## 📌 Product positioning
+## 📌 Product Positioning
 
 **EduAI Platform — Commercial Educational AI Platform / Enterprise EdTech Foundation**
 
