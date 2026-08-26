@@ -22,12 +22,13 @@ function buildKnowledgeProfile(records = []) {
 function rankNextQuestions(questions = [], profile = []) {
   const bySkill = new Map(profile.map(x => [x.skill, x]));
   return (Array.isArray(questions) ? questions : []).map(q => {
-    const p = bySkill.get(q.skill); const mastery = p?.mastery ?? 0;
+    const p = bySkill.get(q.skill);
+    const mastery = p?.mastery ?? 0;
     const difficulty = clamp(q.difficulty ?? 50);
     const target = 45 + mastery * 0.45;
     const fit = 100 - Math.abs(difficulty - target);
     const weakness = 100 - mastery;
-    const knownSkillBonus = p ? 0 : -8;
+    const knownSkillBonus = p ? 8 : 0;
     return { ...q, adaptive_score: Math.round((fit * 0.3 + weakness * 0.7 + knownSkillBonus) * 100) / 100 };
   }).sort((a, b) => b.adaptive_score - a.adaptive_score);
 }
