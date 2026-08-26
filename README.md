@@ -1,101 +1,68 @@
 # EduAI Platform 🎓🤖
 
-منصة تعليمية تجارية مبنية بالذكاء الاصطناعي، تحول المنهج الدراسي من محتوى خام إلى تجربة تعليمية متكاملة للمدرس والطالب.
+منصة تعليمية عربية تعتمد على الذكاء الاصطناعي، مع نواة قابلة للتوسع للمدرس والطالب والمؤسسات.
 
-> **هذا المشروع يُباع كـ Source Code / Commercial Software.** لا يحتوي على مفاتيح API أو بيانات إنتاج حقيقية. المشتري يستخدم credentials والبنية التحتية الخاصة به وفق شروط الترخيص.
+> **Commercial Source Code**: لا توجد مفاتيح API أو بيانات إنتاج داخل المستودع. كل عميل يستخدم credentials والبنية التحتية الخاصة به.
 
-## 🚀 Educational Engine
+## ما تم تنفيذه
 
-```text
-Upload Curriculum
-       ↓
-Analyze
-       ↓
-Generate
-       ↓
-Evaluate
-       ↓
-Teacher Review
-       ↓
-Publish
-       ↓
-Student Learning
-       ↓
-Assessment
-       ↓
-Mastery / Adaptive Learning
-```
-
-## ✨ المزايا
-
-### 🧠 AI Educational Engine
-- تحليل المناهج والمصادر.
-- توليد الدروس والمحتوى.
-- Grounding للمحتوى بالمصدر.
-- Evaluation قبل النشر.
-- Teacher approval workflow.
-- أساس للتعلم التكيفي وMastery.
+### 🤖 AI Tutor
+- OpenAI Responses API على الخادم فقط.
+- تعليم عربي وسياق محادثة محدود وآمن.
+- Student/Teacher prompting منفصل داخل `src/education.js`.
+- حماية من اعتبار محتوى المنهج تعليمات للنظام.
+- Speech Recognition وText-to-Speech في المتصفح.
 
 ### 👨‍🏫 Teacher / 👨‍🎓 Student
-- بنية للمدرس والطالب.
-- نشر المحتوى بعد المراجعة.
-- اختبارات وتقييم.
-- تتبع تقدم الطلاب.
-- Multi-tenant foundation للمدارس والمؤسسات.
+- حسابات وصلاحيات teacher/student.
+- جلسات HttpOnly موقعة بتوكن عشوائي مخزن كـhash.
+- لوحة Dashboard بسيطة.
+- إنشاء درس → review → publish.
+- الطالب يرى الدروس المنشورة فقط.
+- تسجيل درجات ومحاولات وMastery.
 
-### 🤖 AI Integrations
-- OpenAI integration.
-- Multimodal tutoring foundation.
-- Realtime Voice foundation.
-- AI usage controls وproduction configuration.
+### 🏢 Multi-tenant foundation
+- PostgreSQL schema للمؤسسات والمستخدمين والدروس والتقييمات والتقدم.
+- كل عمليات الدروس والتقدم مقيدة بـ`tenant_id`.
+- معاملات قاعدة البيانات أثناء إنشاء المؤسسة والحساب.
 
-### 🔐 Commercial Platform
-- Email verification / password reset foundation.
-- MFA / TOTP.
-- Payments + signed webhook verification.
-- S3 production storage integration.
-- Tenant-isolation tests.
-- Rate limiting وsecurity middleware.
+### 🔐 Security
+- لا secrets داخل الكود أو الواجهة.
+- Password hashing باستخدام Node.js `scrypt` مع salt عشوائي.
+- Rate limiting للـauth/chat/write APIs.
+- Security headers وHSTS في production.
+- Input length/type validation.
+- Stripe webhook signature verification + idempotency table.
 
-### 🧪 Engineering & Operations
+### 🧪 Engineering
+- Unit tests حقيقية للـprompting وpassword hashing.
+- API smoke test.
+- Offline educational evals.
 - GitHub Actions CI.
-- Unit / evaluation tests.
-- Integration tests.
-- Browser E2E باستخدام Playwright.
-- Security/dependency checks.
-- Backup / restore tooling.
-- OpenTelemetry foundation.
-- Staging / Production release gates.
-- Release وrollback runbook.
+- Dependency audit.
 
-## 🛠️ التشغيل محليًا
+## التشغيل
 
-المتطلبات:
-
-- Node.js 20+
-- PostgreSQL للمزايا التي تعتمد على قاعدة البيانات.
-- مفاتيح الخدمات المطلوبة للمزايا الخارجية.
+المتطلبات: Node.js 20+ وPostgreSQL.
 
 ```bash
 npm install
+cp .env.example .env
+npm run db:migrate
 npm start
 ```
 
-ثم افتح:
+ثم افتح `http://localhost:3000`.
 
-```text
-http://localhost:3000
-```
+- المساعد: `/`
+- التعليم: `/education.html`
+- لوحة التحكم: `/dashboard.html`
 
-للمهام الخلفية:
+## Environment
 
-```bash
-npm run worker
-```
+استخدم `.env.example` كقالب. لا تضع أسرارًا في Git.
 
-## ⚙️ Environment Variables
-
-استخدم `.env` محليًا أو Secret Manager في Staging/Production.
+المتغيرات الأساسية:
 
 ```env
 NODE_ENV=development
@@ -103,85 +70,38 @@ PORT=3000
 DATABASE_URL=postgresql://user:password@localhost:5432/eduai
 OPENAI_API_KEY=your_key
 OPENAI_MODEL=gpt-5-mini
-STRIPE_SECRET_KEY=your_key
 STRIPE_WEBHOOK_SECRET=your_webhook_secret
-S3_BUCKET=your_bucket
-S3_REGION=your_region
-OTEL_EXPORTER_OTLP_ENDPOINT=optional_endpoint
 ```
 
-**لا تضع أي secrets داخل Git.**
-
-## 🧪 الاختبارات
+## الاختبارات
 
 ```bash
 npm test
-npm run test:integration
 npm run test:e2e
+node evals/run-evals.mjs
 ```
 
-## 🏗️ Staging / Production
+الـCI يشغّل الاختبارات وAPI smoke وeducational evals و`npm audit`.
 
-قبل الإطلاق:
+## الإنتاج
 
-```text
-CI Green
-  ↓
-Staging Smoke + E2E
-  ↓
-Tenant Isolation
-  ↓
-Auth / MFA
-  ↓
-Payment Webhooks
-  ↓
-AI / Multimodal / Voice
-  ↓
-Backup + Restore Drill
-  ↓
-Monitoring + Alerts
-  ↓
-Load / Security Review
-  ↓
-Production
-```
+قبل أي Production deployment يجب توفير:
 
-راجع `ops/RELEASE_RUNBOOK.md` قبل تسليم أي إصدار.
+1. PostgreSQL managed + encrypted backups.
+2. HTTPS وSecret Manager.
+3. Email provider لتنفيذ email verification/password reset فعليًا.
+4. MFA/TOTP إذا كان مطلوبًا للـtenant policy.
+5. Stripe products/prices وربط أحداث الاشتراك بالـtenant entitlement.
+6. S3-compatible storage إذا تم تفعيل رفع المستندات، مع file validation وvirus scanning.
+7. OpenTelemetry/monitoring/alerts وload/security testing.
+8. Runbook للـbackup/restore وrollback.
 
-## 💳 المنتج عند البيع
+هذه الخدمات **ليست مزيفة داخل الكود**: لا يتم الادعاء بأنها تعمل قبل ربط البنية التحتية والcredentials الخاصة بالعميل.
 
-النسخة الحالية مهيأة للبيع كـ **Source Code / Commercial Software Starter**، وليست اشتراك SaaS جاهزًا للمستخدم النهائي.
+## المنتج عند البيع
 
-المشتري يحصل على الكود والوثائق والإعدادات حسب الترخيص، ويستخدم مفاتيحه وخدماته وبنيته التحتية الخاصة.
+النسخة مناسبة كـ**Commercial Educational AI Starter / Source Code**. لا تُسوّقها كـSaaS production مكتمل قبل تنفيذ متطلبات قسم الإنتاج أعلاه.
 
-### السعر المقترح
+## License
 
-- Launch: **$499**
-- بعد إثبات المنتج ومراجعات العملاء: **$799+**
-- White-label / custom deployment: تسعير منفصل حسب نطاق العمل.
-
-## 🔒 Security
-
-لا تُضمّن في المستودع:
-
-- OpenAI API keys
-- Stripe secrets
-- AWS credentials
-- Email provider credentials
-- Production database credentials
-- بيانات مستخدم حقيقية
-
-استخدم Environment Variables أو Secret Manager.
-
-## 📄 License
-
-الإصدار التجاري يجب أن يتضمن **Commercial License** واضحة تحدد الاستخدام وإعادة التوزيع وإعادة البيع وأي حدود مرتبطة بالمستخدمين أو المؤسسات.
-
-## 📦 Release Checklist
-
-1. شغّل `npm test`.
-2. شغّل Integration وE2E.
-3. راجع `ops/RELEASE_RUNBOOK.md`.
-4. تأكد من عدم وجود secrets داخل Git.
-5. أنشئ release/tag واضحًا.
-6. سلّم Source Code + Documentation + License + `.env.example`.
+أضف Commercial License واضحة قبل التوزيع التجاري، تحدد الاستخدام وإعادة التوزيع وإعادة البيع والحدود الخاصة بالمستخدمين والمؤسسات.
