@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('node:http');
 const { app } = require('../server');
+const { close: closeDb } = require('../src/db');
 
 test('health endpoint is reachable', async () => {
   const server = http.createServer(app);
@@ -14,5 +15,6 @@ test('health endpoint is reachable', async () => {
     assert.equal(body.status, 'ok');
   } finally {
     await new Promise(resolve => server.close(resolve));
+    await closeDb();
   }
 });
