@@ -1,101 +1,120 @@
 # EduAI Platform 🎓🤖
 
-منصة تعليمية تجارية مبنية بالذكاء الاصطناعي، تحول المنهج الدراسي من محتوى خام إلى تجربة تعليمية متكاملة للمدرس والطالب.
+**Commercial Educational AI Platform / Enterprise EdTech Foundation** لبناء منصات تعليمية ذكية للطلاب والمدرسين والمدارس.
 
-> **هذا المشروع يُباع كـ Source Code / Commercial Software.** لا يحتوي على مفاتيح API أو بيانات إنتاج حقيقية. المشتري يستخدم credentials والبنية التحتية الخاصة به وفق شروط الترخيص.
+## 🚀 الإصدار 4.2+
 
-## 🚀 Educational Engine
+EduAI هو **Source Code تجاري قابل للتخصيص**، وليس SaaS مستضافًا جاهزًا. يجمع بين Adaptive Learning وStudent Intelligence وRAG وAdvanced Exams وEnterprise SaaS وIntegrations وطبقات الأداء والتشغيل غير المتزامن.
+
+## 🧠 Adaptive Learning & Student Intelligence
+- Diagnostic Assessment → Knowledge Profile → Weak Concepts → Personalized Content → Adaptive Questions → Mastery → Next Learning Path.
+- Topic/Skill mastery وتوصيات تعلم تكيفية.
+- اختيار السؤال التالي حسب مستوى الطالب.
+- Dynamic Learning Paths.
+
+## 📚 RAG & Knowledge Retrieval
+- Tenant-isolated ingestion/chunking foundation.
+- Metadata filtering وcitations.
+- Hybrid retrieval foundation.
+- Grounded-answer prompting لتقليل hallucination قدر الإمكان.
+- Async Queue/Worker architecture للملفات الكبيرة.
+- PostgreSQL + pgvector كخيار Vector DB في بيئة Production.
+
+## 📝 Advanced Exams
+- Question Bank.
+- MCQ / True-False / Short Answer / Essay / Matching foundations.
+- Difficulty وrandomization.
+- Exam Blueprints.
+- Automatic grading.
+- Rubric-ready assessment flow.
+- Analytics وربط النتائج بالـMastery.
+
+## 👨‍👩‍👧 Engagement
+- Parent Portal foundation لمتابعة تقدم الطالب والتقييمات والتنبيهات والاشتراك.
+- Gamification: XP / Levels / Badges / streaks.
+- Exam integrity/proctoring event model وrisk scoring.
+- Voice Tutor contract لـSTT/TTS.
+
+## ⚡ Performance & Async Architecture
+- SSE streaming foundation لاستجابات AI التدريجية.
+- Redis caching وdistributed rate limiting.
+- BullMQ queue/worker architecture.
+- فصل API عن Workers للمهام الثقيلة.
+
+## 🏢 Enterprise SaaS
+- Multi-tenancy وعزل البيانات بالـtenant_id.
+- RBAC: SuperAdmin / SchoolAdmin / Teacher / Student.
+- AI usage quotas حسب الخطة والـtenant.
+- White-label branding: logo/colors/favicon.
+- Custom-domain validation وtenant host resolution.
+- Plans / subscriptions / entitlements foundation.
+
+## 🔗 Integrations
+- LTI 1.3 launch-context foundation.
+- SCORM 1.2 / 2004 adapter foundation.
+- LMS adapter contracts لـMoodle / Canvas / Google Classroom.
+- Payment adapter abstraction لـStripe / Paymob / Fawry / Tap.
+- Bulk student-data validation/import foundation.
+- Export contracts لـJSON / CSV / XLSX / PDF.
+
+## 👨‍🏫 Teacher / Student / Parent / Admin
+- Teacher Dashboard لإنشاء ومراجعة ونشر المحتوى.
+- Student Dashboard للتعلم والاختبارات والتقدم.
+- Parent experience لمتابعة الطالب.
+- Admin وSchool Admin foundations.
+- AI Tutor للشرح والمراجعة وخطط المذاكرة.
+- Analytics للمؤسسة والطالب.
+
+## 🌍 Multilingual
+الواجهة الأساسية تدعم:
+- 🇪🇬 العربية
+- 🇬🇧 English
+- 🇫🇷 Français
+- 🇪🇸 Español
+
+العربية RTL واللغات الأخرى LTR. دعم لغة AI يعتمد على prompt/model configuration.
+
+## 🏗️ Architecture
 
 ```text
-Upload Curriculum
-       ↓
-Analyze
-       ↓
-Generate
-       ↓
-Evaluate
-       ↓
-Teacher Review
-       ↓
-Publish
-       ↓
-Student Learning
-       ↓
-Assessment
-       ↓
-Mastery / Adaptive Learning
+Web UI
+  ↓
+Express API
+  ├── Auth / RBAC / Multi-tenancy
+  ├── Teacher / Student / Parent / Admin
+  ├── AI Tutor + Content Generation + SSE
+  ├── Adaptive Learning / Student Intelligence / Mastery
+  ├── RAG ingestion → Queue → Worker → Retrieval
+  ├── Assessments / Exams / Grading / Integrity
+  ├── Billing / Entitlements / Usage Quotas
+  ├── Integrations / LMS / Payments
+  └── Audit / Security
+        ↓
+PostgreSQL + pgvector
+        ↕
+Redis / BullMQ Workers
 ```
 
-## ✨ المزايا
+## 🚀 تشغيل محلي
 
-### 🧠 AI Educational Engine
-- تحليل المناهج والمصادر.
-- توليد الدروس والمحتوى.
-- Grounding للمحتوى بالمصدر.
-- Evaluation قبل النشر.
-- Teacher approval workflow.
-- أساس للتعلم التكيفي وMastery.
-
-### 👨‍🏫 Teacher / 👨‍🎓 Student
-- بنية للمدرس والطالب.
-- نشر المحتوى بعد المراجعة.
-- اختبارات وتقييم.
-- تتبع تقدم الطلاب.
-- Multi-tenant foundation للمدارس والمؤسسات.
-
-### 🤖 AI Integrations
-- OpenAI integration.
-- Multimodal tutoring foundation.
-- Realtime Voice foundation.
-- AI usage controls وproduction configuration.
-
-### 🔐 Commercial Platform
-- Email verification / password reset foundation.
-- MFA / TOTP.
-- Payments + signed webhook verification.
-- S3 production storage integration.
-- Tenant-isolation tests.
-- Rate limiting وsecurity middleware.
-
-### 🧪 Engineering & Operations
-- GitHub Actions CI.
-- Unit / evaluation tests.
-- Integration tests.
-- Browser E2E باستخدام Playwright.
-- Security/dependency checks.
-- Backup / restore tooling.
-- OpenTelemetry foundation.
-- Staging / Production release gates.
-- Release وrollback runbook.
-
-## 🛠️ التشغيل محليًا
-
-المتطلبات:
-
-- Node.js 20+
-- PostgreSQL للمزايا التي تعتمد على قاعدة البيانات.
-- مفاتيح الخدمات المطلوبة للمزايا الخارجية.
+المتطلبات: Node.js 20+ وPostgreSQL. لتفعيل queues/caching استخدم Redis.
 
 ```bash
 npm install
+cp .env.example .env
+npm run db:migrate
 npm start
 ```
 
-ثم افتح:
+ثم افتح `http://localhost:3000`.
 
-```text
-http://localhost:3000
-```
-
-للمهام الخلفية:
+### Docker
 
 ```bash
-npm run worker
+docker compose up --build
 ```
 
-## ⚙️ Environment Variables
-
-استخدم `.env` محليًا أو Secret Manager في Staging/Production.
+## ⚙️ Environment
 
 ```env
 NODE_ENV=development
@@ -103,56 +122,55 @@ PORT=3000
 DATABASE_URL=postgresql://user:password@localhost:5432/eduai
 OPENAI_API_KEY=your_key
 OPENAI_MODEL=gpt-5-mini
+REDIS_URL=redis://localhost:6379
 STRIPE_SECRET_KEY=your_key
 STRIPE_WEBHOOK_SECRET=your_webhook_secret
-S3_BUCKET=your_bucket
-S3_REGION=your_region
-OTEL_EXPORTER_OTLP_ENDPOINT=optional_endpoint
+STRIPE_SUCCESS_URL=https://your-domain.example/billing/success
+STRIPE_CANCEL_URL=https://your-domain.example/billing/cancel
 ```
 
-**لا تضع أي secrets داخل Git.**
+لا تضع الأسرار في Git.
 
-## 🧪 الاختبارات
+## 🧪 Validation
 
 ```bash
 npm test
-npm run test:integration
 npm run test:e2e
+node evals/run-evals.mjs
 ```
 
-## 🏗️ Staging / Production
+GitHub Actions يشغّل الاختبارات وAPI smoke وeducational evaluations وdependency audit.
 
-قبل الإطلاق:
+## 📦 ماذا يحصل عليه المشتري؟
 
-```text
-CI Green
-  ↓
-Staging Smoke + E2E
-  ↓
-Tenant Isolation
-  ↓
-Auth / MFA
-  ↓
-Payment Webhooks
-  ↓
-AI / Multimodal / Voice
-  ↓
-Backup + Restore Drill
-  ↓
-Monitoring + Alerts
-  ↓
-Load / Security Review
-  ↓
-Production
-```
+- Source code قابل للتخصيص.
+- AI Tutor وAI content generation.
+- Adaptive Learning / Student Intelligence foundation.
+- RAG ingestion/retrieval + citations foundation.
+- Advanced assessment + grading + exam integrity foundations.
+- Parent Portal + Gamification + Voice Tutor foundations.
+- SSE + Redis + BullMQ architecture.
+- Multi-tenancy + RBAC + usage quotas.
+- White-label + custom-domain foundations.
+- LTI/SCORM/LMS/payment integration adapters.
+- Analytics.
+- Billing / subscription / entitlement foundation.
+- Authentication وsecurity foundation وaudit logs.
+- Docker deployment artifacts.
+- Tests وCI.
+- 4-language UI foundation.
 
-راجع `ops/RELEASE_RUNBOOK.md` قبل تسليم أي إصدار.
+## ⚠️ Production Boundary
 
-## 💳 المنتج عند البيع
+**EduAI ليس SaaS Production مستضافًا بمجرد تحميل الكود.** قبل استخدام بيانات طلاب حقيقية يجب إعداد managed PostgreSQL/pgvector وbackups، Redis production، Secret Manager، object storage وmalware scanning، email verification/reset، MFA حسب السياسة، monitoring/alerts، load/security testing، runbooks، ومراجعة privacy/security مستقلة.
 
-النسخة الحالية مهيأة للبيع كـ **Source Code / Commercial Software Starter**، وليست اشتراك SaaS جاهزًا للمستخدم النهائي.
+LTI/SCORM وMoodle/Canvas/Google Classroom وPaymob/Fawry/Tap تحتاج credentials وsandbox/production configuration لكل مزود. STT/TTS وproctoring/plagiarism تحتاج مزودي الخدمة أو integrations المناسبة. XLSX/PDF exporters الكاملة تحتاج تنفيذ exporter فعلي عند تفعيلها.
 
-المشتري يحصل على الكود والوثائق والإعدادات حسب الترخيص، ويستخدم مفاتيحه وخدماته وبنيته التحتية الخاصة.
+Stripe يحتاج Products/Prices ومفاتيح حقيقية، وRAG للملفات غير النصية يحتاج extraction pipeline production مناسب.
+
+## 💼 Commercial License
+
+الترخيص الأساسي موجود في `COMMERCIAL-LICENSE.md` وهو **Non-Exclusive**، لذلك يمكن بيع الكود لعدة عملاء وفق شروط الترخيص. لا يمنح الشراء حق إعادة بيع أو إعادة توزيع Source Code نفسه.
 
 ### 💰 Commercial Pricing
 
@@ -163,28 +181,27 @@ Production
 
 > السعر الحالي البالغ **$699** هو سعر النسخة التجارية الحالية من Source Code، وليس سعر اشتراك SaaS أو تكلفة البنية التحتية والخدمات الخارجية.
 
-## 🔒 Security
+راجع الترخيص قانونيًا قبل التوزيع التجاري النهائي.
 
-لا تُضمّن في المستودع:
+## 🗺️ Roadmap
 
-- OpenAI API keys
-- Stripe secrets
-- AWS credentials
-- Email provider credentials
-- Production database credentials
-- بيانات مستخدم حقيقية
+- [x] Adaptive Learning + Student Intelligence foundation
+- [x] RAG retrieval/chunking + async worker architecture
+- [x] Advanced Exams + grading + integrity foundation
+- [x] Parent Portal + Gamification + Voice Tutor contracts
+- [x] SSE + Redis + BullMQ architecture
+- [x] LTI/SCORM/LMS/payment integration foundations
+- [x] Enterprise RBAC + quotas + white-label + custom domains foundation
+- [ ] Production managed infrastructure
+- [ ] Full PDF/DOCX/PPTX extraction + malware scanning + object storage
+- [ ] Full external-provider integrations and credentials
+- [ ] Complete XLSX/PDF exporters
+- [ ] Full E2E registration → learning → assessment → billing flow
+- [ ] Live public demo deployment
+- [ ] Independent security/privacy review
 
-استخدم Environment Variables أو Secret Manager.
+## 📌 Product Positioning
 
-## 📄 License
+**EduAI Platform — Commercial Educational AI Platform / Enterprise EdTech Foundation**
 
-الإصدار التجاري يجب أن يتضمن **Commercial License** واضحة تحدد الاستخدام وإعادة التوزيع وإعادة البيع وأي حدود مرتبطة بالمستخدمين أو المؤسسات.
-
-## 📦 Release Checklist
-
-1. شغّل `npm test`.
-2. شغّل Integration وE2E.
-3. راجع `ops/RELEASE_RUNBOOK.md`.
-4. تأكد من عدم وجود secrets داخل Git.
-5. أنشئ release/tag واضحًا.
-6. سلّم Source Code + Documentation + License + `.env.example`.
+قاعدة قابلة للتخصيص للمطورين وشركات EdTech والمدارس، مع فصل واضح بين قدرات الكود الحالية ومتطلبات تشغيل SaaS Production.

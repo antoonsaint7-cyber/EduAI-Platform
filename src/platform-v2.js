@@ -17,7 +17,6 @@ function registerPlatformV2(app, { query, getCurrentUser, client }) {
   const chunk = (text, size = 6000) => { const out=[]; for(let i=0;i<text.length;i+=size) out.push(text.slice(i,i+size)); return out; };
   const tokenize = text => [...new Set(String(text).toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(x => x.length > 2))].slice(0,80);
 
-  // V2: topic mastery + adaptive recommendations.
   app.get('/api/learning/recommendations', role('student'), async (req,res,next) => {
     try {
       const rows = await query(`SELECT id,title,subject,level,content FROM lessons WHERE tenant_id=$1 AND status='published' ORDER BY updated_at DESC`, [req.user.tenant_id]);
@@ -37,7 +36,6 @@ function registerPlatformV2(app, { query, getCurrentUser, client }) {
     }catch(e){next(e);}
   });
 
-  // V2: tenant-isolated document ingestion + retrieval-ready chunks. Text extraction can be performed by a trusted worker/storage layer.
   app.post('/api/rag/documents', role('teacher','admin'), async (req,res,next) => {
     try {
       const name=String(req.body?.name||'').trim(), mime=String(req.body?.mimeType||'text/plain'), text=String(req.body?.text||'').trim();
@@ -59,7 +57,6 @@ function registerPlatformV2(app, { query, getCurrentUser, client }) {
     }catch(e){next(e);}
   });
 
-  // V3: plan/entitlement and real Stripe Checkout session creation.
   app.get('/api/billing/plans', async (_req,res,next)=>{ try { const r=await query('SELECT id,name,monthly_ai_limit,max_students,max_teachers,stripe_price_id FROM subscription_plans ORDER BY CASE id WHEN \'free\' THEN 0 WHEN \'teacher\' THEN 1 WHEN \'school\' THEN 2 ELSE 3 END'); res.json({plans:r.rows}); } catch(e){next(e);} });
   app.get('/api/billing/subscription', auth, async (req,res,next)=>{ try { const r=await query('SELECT s.*,p.name,p.monthly_ai_limit,p.max_students,p.max_teachers FROM subscriptions s JOIN subscription_plans p ON p.id=s.plan_id WHERE s.tenant_id=$1 ORDER BY s.updated_at DESC LIMIT 1',[req.user.tenant_id]); res.json({subscription:r.rows[0]||null}); }catch(e){next(e);} });
   app.post('/api/billing/checkout', role('admin','teacher'), async (req,res,next)=>{
@@ -71,14 +68,11 @@ function registerPlatformV2(app, { query, getCurrentUser, client }) {
     }catch(e){next(e);}
   });
 
-  // V3: usage entitlement guard for AI-capable applications.
   app.get('/api/billing/entitlements', auth, async (req,res,next)=>{ try { const r=await query(`SELECT COALESCE(p.name,'Free') name,COALESCE(p.monthly_ai_limit,50) monthly_ai_limit,COALESCE(p.max_students,25) max_students,COALESCE(p.max_teachers,2) max_teachers,COALESCE(s.status,'trialing') status FROM tenants t LEFT JOIN subscriptions s ON s.tenant_id=t.id AND s.status IN ('trialing','active','past_due') LEFT JOIN subscription_plans p ON p.id=s.plan_id WHERE t.id=$1 LIMIT 1`,[req.user.tenant_id]); res.json({entitlements:r.rows[0]||null}); }catch(e){next(e);} });
 
-  // V4: tenant administration, audit trail and operational controls.
   app.get('/api/admin/overview', role('admin'), async (req,res,next)=>{ try { const [users,lessons,audit]=await Promise.all([query('SELECT role,COUNT(*)::int count FROM users WHERE tenant_id=$1 GROUP BY role',[req.user.tenant_id]),query('SELECT status,COUNT(*)::int count FROM lessons WHERE tenant_id=$1 GROUP BY status',[req.user.tenant_id]),query('SELECT action,created_at,actor_id,metadata FROM audit_logs WHERE tenant_id=$1 ORDER BY created_at DESC LIMIT 25',[req.user.tenant_id])]); res.json({users:users.rows,lessons:lessons.rows,audit:audit.rows}); }catch(e){next(e);} });
   app.get('/api/admin/users', role('admin'), async (req,res,next)=>{ try { const r=await query('SELECT id,name,email,role,email_verified_at,created_at FROM users WHERE tenant_id=$1 ORDER BY created_at DESC',[req.user.tenant_id]); res.json({users:r.rows}); }catch(e){next(e);} });
 
-  // Secure Stripe endpoint on a separate path so the raw-body signature is preserved.
   app.post('/api/billing/webhook', async (req,res,next)=>{ try { const secret=process.env.STRIPE_WEBHOOK_SECRET; const signature=req.headers['stripe-signature']; if(!secret||typeof signature!=='string') return res.status(503).json({error:'Stripe webhook غير مضبوط.'}); const raw=Buffer.isBuffer(req.body)?req.body:Buffer.from(JSON.stringify(req.body)); const t=signature.match(/(?:^|,)t=(\d+)/)?.[1], v=signature.match(/(?:^|,)v1=([a-f0-9]+)/)?.[1]; if(!t||!v||Math.abs(Date.now()/1000-Number(t))>300)return res.status(400).json({error:'توقيع Stripe غير صالح.'}); const expected=crypto.createHmac('sha256',secret).update(`${t}.${raw.toString('utf8')}`).digest('hex'); if(!crypto.timingSafeEqual(Buffer.from(expected,'hex'),Buffer.from(v,'hex')))return res.status(400).json({error:'توقيع Stripe غير صالح.'}); const event=JSON.parse(raw.toString('utf8')); if(event.id) await query('INSERT INTO webhook_events(id,provider) VALUES($1,\'stripe\') ON CONFLICT DO NOTHING',[event.id]); res.json({received:true}); }catch(e){next(e);} });
 }
 module.exports = { registerPlatformV2 };

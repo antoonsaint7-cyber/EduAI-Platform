@@ -2,17 +2,239 @@ name: Test
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'codex/**']
   pull_request:
 
+permissions:
+  contents: write
+
+concurrency:
+  group: test-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  test:
+  merge-candidate:
+    name: merge-candidate
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: eduai
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd="pg_isready -U postgres -d eduai"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/eduai
+      REDIS_URL: redis://localhost:6379
+      NODE_ENV: test
+      PORT: 3000
+      RUN_RAG_WORKER: 'false'
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v5
         with:
-          node-version: 20
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24.x
           cache: npm
-      - run: npm install
-      - run: npm test
+
+      - name: Bootstrap lockfile on the development branch
+        if: github.event_name == 'push' && startsWith(github.ref_name, 'codex/')
+        run: |
+          if [ ! -f package-lock.json ]; then
+            npm install --package-lock-only --ignore-scripts
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add package-lock.json
+            git commit -m "chore(ci): add npm lockfile"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
+
+      - name: Require committed lockfile
+        run: |
+          test -f package-lock.json || {
+            echo "package-lock.json is missing. Push the generated lockfile before merge."
+            exit 1
+          }
+
+          npm install --package-lock-only --ignore-scripts --dry-run >/tmp/lock-check.log 2>&1 || {
+            cat /tmp/lock-check.log
+            echo "package-lock.json is not compatible with package.json."
+            exit 1
+          }
+
+      - name: Install dependencies with npm ci
+        run: npm ci
+
+      - name: Verify PostgreSQL readiness
+        run: pg_isready -h 127.0.0.1 -p 5432 -U postgres -d eduai
+
+      - name: Verify Redis readiness
+        run: |
+          node - <<'NODE'
+          const Redis = require('ioredis');
+
+          const redis = new Redis(process.env.REDIS_URL, {
+            lazyConnect: true,
+            connectTimeout: 5000,
+            maxRetriesPerRequest: 0,
+            retryStrategy: null,
+            enableOfflineQueue: false,
+          });
+
+          (async () => {
+            try {
+              await redis.connect();
+
+              const pong = await redis.ping();
+
+              if (pong !== 'PONG') {
+                throw new Error(`Unexpected Redis response: ${pong}`);
+              }
+
+              console.log('Redis readiness: PONG');
+            } finally {
+              redis.disconnect();
+            }
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
+
+      - name: Run all database migrations
+        run: npm run db:migrate
+
+      - name: Verify migration ledger
+        run: |
+          node - <<'NODE'
+          const { query, close } = require('./src/db');
+
+          (async () => {
+            try {
+              const { rows } = await query(
+                'SELECT version FROM schema_migrations ORDER BY version'
+              );
+
+              if (
+                !rows.some(
+                  ({ version }) => version === '002_stage2_learning.sql'
+                )
+              ) {
+                throw new Error('002_stage2_learning.sql was not applied');
+              }
+
+              console.log(
+                `Applied migrations: ${rows
+                  .map(({ version }) => version)
+                  .join(', ')}`
+              );
+            } finally {
+              await close();
+            }
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
+
+      - name: Run test suite
+        run: npm test
+
+      - name: Start production launcher
+        run: |
+          node src/launcher.js > /tmp/eduai.log 2>&1 &
+          echo $! > /tmp/eduai.pid
+
+      - name: Validate /ready against PostgreSQL and Redis
+        shell: bash
+        run: |
+          set -u
+
+          for i in $(seq 1 30); do
+            response="$(curl \
+              --fail \
+              --silent \
+              --show-error \
+              --max-time 3 \
+              http://127.0.0.1:3000/ready 2>/tmp/ready-error.log || true)"
+
+            if [ -n "$response" ]; then
+              printf '%s\n' "$response" > /tmp/ready.json
+
+              if node - <<'NODE'
+          const fs = require('node:fs');
+
+          try {
+            const x = JSON.parse(
+              fs.readFileSync('/tmp/ready.json', 'utf8')
+            );
+
+            if (
+              x.status === 'ready' &&
+              x.checks?.database === true &&
+              x.checks?.redis === true
+            ) {
+              process.exit(0);
+            }
+
+            console.log('Readiness response is not ready yet:', x);
+            process.exit(1);
+          } catch (error) {
+            console.log('Invalid readiness response:', error.message);
+            process.exit(1);
+          }
+          NODE
+              then
+                echo "Production readiness check passed."
+                exit 0
+              fi
+            fi
+
+            echo "Waiting for /ready... attempt $i/30"
+            sleep 1
+          done
+
+          echo "Production readiness check failed."
+          echo "Launcher logs:"
+          cat /tmp/eduai.log || true
+
+          echo "Curl error:"
+          cat /tmp/ready-error.log || true
+
+          exit 1
+
+      - name: Stop production launcher
+        if: always()
+        run: |
+          if [ -f /tmp/eduai.pid ]; then
+            kill "$(cat /tmp/eduai.pid)" || true
+            sleep 1
+          fi
+
+      - name: Validate production Docker build
+        run: docker build --tag eduai-platform:merge-candidate .
+
+# CI readiness validation: trigger a fresh test run after the /ready fix.

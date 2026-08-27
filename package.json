@@ -1,18 +1,24 @@
 {
-  "name": "voice-ai-assistant",
-  "version": "1.1.0",
-  "private": true,
-  "description": "Arabic voice AI assistant powered by OpenAI.",
+  "name": "eduai-platform",
+  "version": "4.2.0",
+  "private": false,
+  "description": "Commercial educational AI platform with adaptive learning, grounded RAG, advanced assessments, student intelligence, billing, multi-tenancy and enterprise foundations.",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "test": "node --check server.js && node --check public/app.js"
+    "start": "node src/launcher.js",
+    "worker": "node src/infrastructure/rag-worker.js",
+    "test": "node --test test/*.test.js && node --check server.js && node --check src/launcher.js && node --check src/ai-content.js && node --check src/stage2-learning.js && node --check src/adaptive-engine.js && node --check src/hybrid-retrieval.js && node --check src/exam-engine.js && node --check src/exam-blueprint.js && node --check src/education.js && node --check src/infrastructure/sse.js && node --check src/infrastructure/cache.js && node --check src/infrastructure/rate-limit.js && node --check src/infrastructure/queues.js && node --check src/infrastructure/rag-worker.js && node --check public/app.js && node --check public/education.js",
+    "test:unit": "node --test test/*.test.js",
+    "test:syntax": "node --check server.js && node --check src/launcher.js && node --check src/ai-content.js && node --check src/stage2-learning.js && node --check src/adaptive-engine.js && node --check src/hybrid-retrieval.js && node --check src/exam-engine.js && node --check src/exam-blueprint.js && node --check src/education.js && node --check src/infrastructure/sse.js && node --check src/infrastructure/cache.js && node --check src/infrastructure/rate-limit.js && node --check src/infrastructure/queues.js && node --check src/infrastructure/rag-worker.js && node --check public/app.js && node --check public/education.js",
+    "test:e2e": "node test/e2e-smoke.test.js",
+    "db:migrate": "node scripts/migrate.js"
   },
-  "engines": {
-    "node": ">=20"
-  },
+  "engines": { "node": ">=24" },
   "dependencies": {
+    "bullmq": "^5.58.5",
     "express": "^5.1.0",
-    "openai": "^5.12.2"
+    "ioredis": "^5.7.0",
+    "openai": "^5.12.2",
+    "pg": "^8.16.3"
   }
 }

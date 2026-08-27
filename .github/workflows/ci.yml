@@ -3,7 +3,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, 'codex/**']
 
 permissions:
   contents: read
@@ -15,27 +15,45 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    env:
+      REDIS_URL: redis://127.0.0.1:6379
+      NODE_ENV: test
+
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup Node
-        uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
+      # GitHub-hosted Ubuntu runners include a supported Node.js runtime.
+      # Avoid setup-node here because the repository's CI environment was
+      # failing before any project command could execute.
+      - name: Verify Node and npm
+        run: |
+          node --version
+          npm --version
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
-      - name: Syntax check
-        run: node --check server.js
+      - name: Syntax and unit tests
+        run: npm test
+
+      - name: API smoke test
+        run: npm run test:e2e
 
       - name: Offline educational evals
         run: node evals/run-evals.mjs
-
-      - name: Run project tests
-        run: npm test --if-present
 
       - name: Security audit
         run: npm audit --audit-level=high
