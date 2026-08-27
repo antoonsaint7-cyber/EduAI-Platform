@@ -78,7 +78,6 @@ jobs:
             echo "package-lock.json is missing. Push the generated lockfile before merge."
             exit 1
           }
-
           npm install --package-lock-only --ignore-scripts --dry-run >/tmp/lock-check.log 2>&1 || {
             cat /tmp/lock-check.log
             echo "package-lock.json is not compatible with package.json."
@@ -95,7 +94,6 @@ jobs:
         run: |
           node - <<'NODE'
           const Redis = require('ioredis');
-
           const redis = new Redis(process.env.REDIS_URL, {
             lazyConnect: true,
             connectTimeout: 5000,
@@ -103,17 +101,11 @@ jobs:
             retryStrategy: null,
             enableOfflineQueue: false,
           });
-
           (async () => {
             try {
               await redis.connect();
-
               const pong = await redis.ping();
-
-              if (pong !== 'PONG') {
-                throw new Error(`Unexpected Redis response: ${pong}`);
-              }
-
+              if (pong !== 'PONG') throw new Error(`Unexpected Redis response: ${pong}`);
               console.log('Redis readiness: PONG');
             } finally {
               redis.disconnect();
@@ -131,26 +123,13 @@ jobs:
         run: |
           node - <<'NODE'
           const { query, close } = require('./src/db');
-
           (async () => {
             try {
-              const { rows } = await query(
-                'SELECT version FROM schema_migrations ORDER BY version'
-              );
-
-              if (
-                !rows.some(
-                  ({ version }) => version === '002_stage2_learning.sql'
-                )
-              ) {
+              const { rows } = await query('SELECT version FROM schema_migrations ORDER BY version');
+              if (!rows.some(({ version }) => version === '002_stage2_learning.sql')) {
                 throw new Error('002_stage2_learning.sql was not applied');
               }
-
-              console.log(
-                `Applied migrations: ${rows
-                  .map(({ version }) => version)
-                  .join(', ')}`
-              );
+              console.log(`Applied migrations: ${rows.map(({ version }) => version).join(', ')}`);
             } finally {
               await close();
             }
@@ -172,34 +151,17 @@ jobs:
         shell: bash
         run: |
           set -u
-
           for i in $(seq 1 30); do
-            response="$(curl \
-              --fail \
-              --silent \
-              --show-error \
-              --max-time 3 \
-              http://127.0.0.1:3000/ready 2>/tmp/ready-error.log || true)"
-
+            response="$(curl --fail --silent --show-error --max-time 3 http://127.0.0.1:3000/ready 2>/tmp/ready-error.log || true)"
             if [ -n "$response" ]; then
               printf '%s\n' "$response" > /tmp/ready.json
-
               if node - <<'NODE'
           const fs = require('node:fs');
-
           try {
-            const x = JSON.parse(
-              fs.readFileSync('/tmp/ready.json', 'utf8')
-            );
-
-            if (
-              x.status === 'ready' &&
-              x.checks?.database === true &&
-              x.checks?.redis === true
-            ) {
+            const x = JSON.parse(fs.readFileSync('/tmp/ready.json', 'utf8'));
+            if (x.status === 'ready' && x.checks?.database === true && x.checks?.redis === true) {
               process.exit(0);
             }
-
             console.log('Readiness response is not ready yet:', x);
             process.exit(1);
           } catch (error) {
@@ -212,18 +174,14 @@ jobs:
                 exit 0
               fi
             fi
-
             echo "Waiting for /ready... attempt $i/30"
             sleep 1
           done
-
           echo "Production readiness check failed."
           echo "Launcher logs:"
           cat /tmp/eduai.log || true
-
           echo "Curl error:"
           cat /tmp/ready-error.log || true
-
           exit 1
 
       - name: Stop production launcher
@@ -236,5 +194,3 @@ jobs:
 
       - name: Validate production Docker build
         run: docker build --tag eduai-platform:merge-candidate .
-
-# CI readiness validation: trigger a fresh test run after the /ready fix.
