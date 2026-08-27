@@ -66,6 +66,8 @@ async function migrate() {
     'SELECT version FROM schema_migrations ORDER BY version',
   );
 
+  // The ledger is authoritative: every discovered numbered migration must
+  // have a durable record before the deployment is considered ready.
   const appliedVersions = new Set(rows.map(({ version }) => version));
   const missing = migrations.filter((file) => !appliedVersions.has(file));
   if (missing.length) {
