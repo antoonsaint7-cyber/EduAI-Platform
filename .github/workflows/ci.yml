@@ -35,9 +35,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      # GitHub-hosted Ubuntu runners include a supported Node.js runtime.
-      # Avoid setup-node here because the repository's CI environment was
-      # failing before any project command could execute.
       - name: Verify Node and npm
         run: |
           node --version
