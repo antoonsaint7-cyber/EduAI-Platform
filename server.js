@@ -6,6 +6,7 @@ const { normalizeEmail, hashPassword, verifyPassword, createSession, setSessionC
 const { rateLimit } = require('./src/rate-limit');
 const { buildEducationalPrompt } = require('./src/education');
 const { generateLesson, generateCourse, generateQuiz } = require('./src/ai-content');
+const { applyAdaptiveAssessment } = require('./src/adaptive-api');
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
@@ -182,7 +183,8 @@ app.post('/api/assessments/:id/submit', writeLimiter, requireRole('student'), as
     const review = questions.map((q, index) => { const isCorrect = normalized[index] === Number(q.answer_index); if (isCorrect) correct += 1; return { question: q.question, selected: Number.isInteger(normalized[index]) ? normalized[index] : null, correct: isCorrect, explanation: q.explanation || '' }; });
     const score = questions.length ? Math.round((correct / questions.length) * 10000) / 100 : 0;
     const progressResult = await query('INSERT INTO progress(tenant_id,student_id,lesson_id,mastery,last_score,attempts) VALUES($1,$2,$3,$4,$5,1) ON CONFLICT(student_id,lesson_id) DO UPDATE SET last_score=EXCLUDED.last_score, attempts=progress.attempts+1, mastery=LEAST(100, ROUND((progress.mastery*0.7 + EXCLUDED.last_score*0.3)::numeric,2)) RETURNING *', [req.user.tenant_id, req.user.id, assessment.lesson_id, score, score]);
-    res.json({ score, correct, total: questions.length, review, progress: progressResult.rows[0] });
+    const adaptive = await applyAdaptiveAssessment({ query, user: req.user, assessment, questions, answers });
+    res.json({ score, correct, total: questions.length, review, progress: progressResult.rows[0], adaptive });
   } catch (error) { next(error); }
 });
 
