@@ -1,6 +1,6 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { query, close } = require('../src/db');
+const { query, withTransaction, close } = require('../src/db');
 
 const DB_DIR = path.join(__dirname, '..', 'db');
 const MIGRATIONS_DIR = path.join(DB_DIR, 'migrations');
@@ -18,53 +18,54 @@ async function listMigrations() {
 }
 
 async function migrate() {
-  await query('SELECT pg_advisory_lock(732145)');
-  try {
-    await query(`
-      CREATE TABLE IF NOT EXISTS schema_migrations (
-        version TEXT PRIMARY KEY,
-        applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
-      )
-    `);
+  await query(`
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      version TEXT PRIMARY KEY,
+      applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `);
 
-    // These are the foundational, idempotent schema layers. They must exist
-    // before numbered migrations can safely reference their tables/functions.
-    for (const file of ['schema.sql', 'platform-v2.sql']) {
-      await query(await readSql(path.join(DB_DIR, file)));
-      console.log(`Applied base schema layer: ${file}`);
+  // Foundational schema layers are intentionally idempotent and must exist
+  // before numbered migrations can reference their tables and functions.
+  for (const file of ['schema.sql', 'platform-v2.sql']) {
+    await query(await readSql(path.join(DB_DIR, file)));
+    console.log(`Applied base schema layer: ${file}`);
+  }
+
+  const migrations = await listMigrations();
+  for (const file of migrations) {
+    const { rows } = await query(
+      'SELECT 1 FROM schema_migrations WHERE version = $1',
+      [file],
+    );
+    if (rows.length) {
+      console.log(`Skipped already-applied migration: ${file}`);
+      continue;
     }
 
-    const migrations = await listMigrations();
-    for (const file of migrations) {
-      const { rows } = await query(
+    const sql = await readSql(path.join(MIGRATIONS_DIR, file));
+    await withTransaction(async (client) => {
+      // Transaction-scoped advisory lock prevents concurrent migration runners.
+      await client.query('SELECT pg_advisory_xact_lock(732145)');
+      const { rows: applied } = await client.query(
         'SELECT 1 FROM schema_migrations WHERE version = $1',
         [file],
       );
-      if (rows.length) {
-        console.log(`Skipped already-applied migration: ${file}`);
-        continue;
-      }
+      if (applied.length) return;
 
-      const clientSql = await readSql(path.join(MIGRATIONS_DIR, file));
-      await query('BEGIN');
-      try {
-        await query(clientSql);
-        await query('INSERT INTO schema_migrations(version) VALUES ($1)', [file]);
-        await query('COMMIT');
-        console.log(`Applied migration: ${file}`);
-      } catch (error) {
-        await query('ROLLBACK');
-        throw new Error(`Migration ${file} failed: ${error?.message || error}`);
-      }
-    }
-
-    const { rows } = await query(
-      'SELECT version FROM schema_migrations ORDER BY version',
-    );
-    console.log(`Database migration completed. ${rows.length} numbered migration(s) applied.`);
-  } finally {
-    await query('SELECT pg_advisory_unlock(732145)');
+      await client.query(sql);
+      await client.query(
+        'INSERT INTO schema_migrations(version) VALUES ($1)',
+        [file],
+      );
+    });
+    console.log(`Applied migration: ${file}`);
   }
+
+  const { rows } = await query(
+    'SELECT version FROM schema_migrations ORDER BY version',
+  );
+  console.log(`Database migration completed. ${rows.length} numbered migration(s) applied.`);
 }
 
 migrate()
