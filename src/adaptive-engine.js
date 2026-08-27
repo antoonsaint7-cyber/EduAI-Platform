@@ -43,7 +43,7 @@ function rankNextQuestions(questions = [], profile = []) {
     const difficulty = clamp(q.difficulty ?? 50); const target = targetDifficulty(mastery);
     const fit = 100 - Math.abs(difficulty - target);
     const weakness = 100 - mastery;
-    const knownSkillBonus = p ? 8 : 0;
+    const knownSkillBonus = p ? 10 : -30;
     return { ...q, adaptive_score: Math.round((fit * 0.3 + weakness * 0.7 + knownSkillBonus) * 100) / 100, recommended_difficulty: target };
   }).sort((a, b) => b.adaptive_score - a.adaptive_score);
 }
