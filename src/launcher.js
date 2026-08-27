@@ -2,11 +2,27 @@ const http = require('node:http');
 const { app, close } = require('../server');
 const { query } = require('./db');
 const { getCurrentUser } = require('./auth');
+const { closeRedis, getRedis } = require('./infrastructure/redis');
 const OpenAI = require('openai');
 const { registerPlatformV2 } = require('./platform-v2');
 
 const client = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
 registerPlatformV2(app, { query, getCurrentUser, client });
+
+app.get('/ready', async (_req, res) => {
+  const checks = { database: false, redis: false };
+  try {
+    await query('SELECT 1');
+    checks.database = true;
+    const redis = getRedis();
+    if (!redis) throw new Error('REDIS_URL is not configured.');
+    await redis.ping();
+    checks.redis = true;
+    res.status(200).json({ status: 'ready', checks });
+  } catch (error) {
+    res.status(503).json({ status: 'not_ready', checks, error: error?.message || 'readiness check failed' });
+  }
+});
 
 const port = Number(process.env.PORT || 3000);
 if (!Number.isInteger(port) || port < 1 || port > 65535) {
@@ -36,6 +52,7 @@ async function shutdown(signal) {
   server.close(async () => {
     try {
       await close();
+      await closeRedis();
       clearTimeout(forceExit);
       process.exit(0);
     } catch (error) {
