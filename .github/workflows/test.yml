@@ -87,23 +87,24 @@ jobs:
         run: pg_isready -h 127.0.0.1 -p 5432 -U postgres -d eduai
 
       - name: Verify Redis readiness
-        run: node - <<'NODE'
-        const Redis = require('ioredis');
-        const redis = new Redis(process.env.REDIS_URL, { lazyConnect: true });
-        (async () => {
-          try {
-            await redis.connect();
-            const pong = await redis.ping();
-            if (pong !== 'PONG') throw new Error(`Unexpected Redis response: ${pong}`);
-            console.log('Redis readiness: PONG');
-          } finally {
-            await redis.quit().catch(() => redis.disconnect());
-          }
-        })().catch((error) => {
-          console.error(error);
-          process.exit(1);
-        });
-        NODE
+        run: |
+          node - <<'NODE'
+          const Redis = require('ioredis');
+          const redis = new Redis(process.env.REDIS_URL, { lazyConnect: true });
+          (async () => {
+            try {
+              await redis.connect();
+              const pong = await redis.ping();
+              if (pong !== 'PONG') throw new Error(`Unexpected Redis response: ${pong}`);
+              console.log('Redis readiness: PONG');
+            } finally {
+              await redis.quit().catch(() => redis.disconnect());
+            }
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
 
       - name: Run all database migrations
         run: npm run db:migrate
