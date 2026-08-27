@@ -27,7 +27,7 @@ function rankNextQuestions(questions = [], profile = []) {
     const difficulty = clamp(q.difficulty ?? 50);
     const target = 45 + mastery * 0.45;
     const fit = 100 - Math.abs(difficulty - target);
-    const weakness = 100 - mastery;
+    const weakness = p ? 100 - mastery : 0;
     const knownSkillBonus = p ? 8 : 0;
     return { ...q, adaptive_score: Math.round((fit * 0.3 + weakness * 0.7 + knownSkillBonus) * 100) / 100 };
   }).sort((a, b) => b.adaptive_score - a.adaptive_score);
