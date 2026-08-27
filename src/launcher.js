@@ -1,5 +1,12 @@
 const http = require('node:http');
 const { app, close } = require('../server');
+const { query } = require('./db');
+const { getCurrentUser } = require('./auth');
+const OpenAI = require('openai');
+const { registerPlatformV2 } = require('./platform-v2');
+
+const client = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
+registerPlatformV2(app, { query, getCurrentUser, client });
 
 const port = Number(process.env.PORT || 3000);
 if (!Number.isInteger(port) || port < 1 || port > 65535) {
