@@ -236,3 +236,5 @@ jobs:
 
       - name: Validate production Docker build
         run: docker build --tag eduai-platform:merge-candidate .
+
+# CI readiness validation: trigger a fresh test run after the /ready fix.
