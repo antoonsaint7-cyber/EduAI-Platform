@@ -29,3 +29,6 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+      - name: Validate production Docker build
+        run: docker build --tag eduai-platform:ci .
