@@ -43,7 +43,7 @@ function aggregateSkillEvidence(graded = []) {
   const buckets = new Map();
   for (const item of graded) {
     if (!item.skill) continue;
-    const bucket = buckets.get(item.skill) || { skill: item.skill, score: 0, difficulty: 50, attempts: 0 };
+    const bucket = buckets.get(item.skill) || { skill: item.skill, score: 0, difficulty: 0, attempts: 0 };
     bucket.score += item.correct ? 100 : 0;
     bucket.difficulty += item.difficulty;
     bucket.attempts += 1;
