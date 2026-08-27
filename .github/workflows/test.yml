@@ -144,9 +144,61 @@ jobs:
           node src/launcher.js > /tmp/eduai.log 2>&1 &
           echo $! > /tmp/eduai.pid
 
-      - name: Validate /ready against PostgreSQL and Redis
+      - name:       - name: Validate /ready against PostgreSQL and Redis
+        shell: bash
         run: |
+          set -u
+
           for i in $(seq 1 30); do
+            response="$(curl \
+              --fail \
+              --silent \
+              --show-error \
+              --max-time 3 \
+              http://127.0.0.1:3000/ready 2>/tmp/ready-error.log || true)"
+
+            if [ -n "$response" ]; then
+              printf '%s\n' "$response" > /tmp/ready.json
+
+              if node - <<'NODE'
+          const fs = require('node:fs');
+
+          try {
+            const x = JSON.parse(fs.readFileSync('/tmp/ready.json', 'utf8'));
+
+            if (
+              x.status === 'ready' &&
+              x.checks?.database === true &&
+              x.checks?.redis === true
+            ) {
+              process.exit(0);
+            }
+
+            console.log('Readiness response is not ready yet:', x);
+            process.exit(1);
+          } catch (error) {
+            console.log('Invalid readiness response:', error.message);
+            process.exit(1);
+          }
+          NODE
+              then
+                echo "Production readiness check passed."
+                exit 0
+              fi
+            fi
+
+            echo "Waiting for /ready... attempt $i/30"
+            sleep 1
+          done
+
+          echo "Production readiness check failed."
+          echo "Launcher logs:"
+          cat /tmp/eduai.log || true
+
+          echo "Curl error:"
+          cat /tmp/ready-error.log || true
+
+          exit 1
             if curl --fail --silent --show-error http://127.0.0.1:3000/ready | tee /tmp/ready.json; then
               node -e "const x=require('/tmp/ready.json'); if(x.status!=='ready'||!x.checks?.database||!x.checks?.redis) process.exit(1)"
               exit 0
