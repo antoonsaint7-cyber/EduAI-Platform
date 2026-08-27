@@ -12,7 +12,7 @@ async function readSql(filePath) {
 async function listMigrations() {
   const entries = await fs.readdir(MIGRATIONS_DIR, { withFileTypes: true });
   return entries
-    .filter((entry) => entry.isFile() && /^\d+_.+\.sql$/i.test(entry.name))
+    .filter((entry) => entry.isFile() && /^\d+.*\.sql$/i.test(entry.name))
     .map((entry) => entry.name)
     .sort((a, b) => a.localeCompare(b, 'en', { numeric: true }));
 }
@@ -25,8 +25,8 @@ async function migrate() {
     )
   `);
 
-  // Foundational schema layers are intentionally idempotent and must exist
-  // before numbered migrations can reference their tables and functions.
+  // Base schema layers are idempotent and must exist before numbered
+  // migrations can reference their tables/functions.
   for (const file of ['schema.sql', 'platform-v2.sql']) {
     await query(await readSql(path.join(DB_DIR, file)));
     console.log(`Applied base schema layer: ${file}`);
@@ -45,7 +45,7 @@ async function migrate() {
 
     const sql = await readSql(path.join(MIGRATIONS_DIR, file));
     await withTransaction(async (client) => {
-      // Transaction-scoped advisory lock prevents concurrent migration runners.
+      // Serialize migration runners and make each migration atomic.
       await client.query('SELECT pg_advisory_xact_lock(732145)');
       const { rows: applied } = await client.query(
         'SELECT 1 FROM schema_migrations WHERE version = $1',
@@ -65,6 +65,13 @@ async function migrate() {
   const { rows } = await query(
     'SELECT version FROM schema_migrations ORDER BY version',
   );
+
+  const appliedVersions = new Set(rows.map(({ version }) => version));
+  const missing = migrations.filter((file) => !appliedVersions.has(file));
+  if (missing.length) {
+    throw new Error(`Migration ledger is incomplete: ${missing.join(', ')}`);
+  }
+
   console.log(`Database migration completed. ${rows.length} numbered migration(s) applied.`);
 }
 
