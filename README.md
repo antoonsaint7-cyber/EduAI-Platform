@@ -172,6 +172,15 @@ Stripe يحتاج Products/Prices ومفاتيح حقيقية، وRAG للملف
 
 الترخيص الأساسي موجود في `COMMERCIAL-LICENSE.md` وهو **Non-Exclusive**، لذلك يمكن بيع الكود لعدة عملاء وفق شروط الترخيص. لا يمنح الشراء حق إعادة بيع أو إعادة توزيع Source Code نفسه.
 
+### 💰 Commercial Pricing
+
+- **Current Source Code License: $699**
+- **Future launch price after Adaptive Learning + RAG + Advanced Exams: $999–$1,299**
+- **White-label / custom deployment: $1,500–$3,000+** حسب نطاق العمل والتخصيص.
+- **Enterprise deployment: $3,000–$5,000+** حسب المتطلبات والبنية والتكاملات.
+
+> السعر الحالي البالغ **$699** هو سعر النسخة التجارية الحالية من Source Code، وليس سعر اشتراك SaaS أو تكلفة البنية التحتية والخدمات الخارجية.
+
 راجع الترخيص قانونيًا قبل التوزيع التجاري النهائي.
 
 ## 🗺️ Roadmap
