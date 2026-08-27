@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const { chunkText, createProductionProcessor } = require('../src/infrastructure/rag-processor');
 const { createRagWorker } = require('../src/infrastructure/rag-worker');
+const { closeRedis } = require('../src/infrastructure/redis');
 
 test('production RAG processor chunks, embeds and persists documents', async () => {
   const queries = [];
@@ -38,7 +39,16 @@ test('production RAG processor rejects missing required job data', async () => {
   await assert.rejects(() => processor({ document_id: 'doc-only' }), /tenant_id, document_id and text/);
 });
 
-test('RAG worker defaults to the production processor contract', () => {
+test('RAG worker starts with the production processor and closes cleanly', async () => {
   assert.equal(typeof createRagWorker, 'function');
-  assert.throws(() => createRagWorker(), /REDIS_URL is required/);
+  assert.ok(process.env.REDIS_URL, 'REDIS_URL must be configured for the worker integration test');
+
+  let worker;
+  try {
+    worker = createRagWorker();
+    assert.equal(typeof worker.close, 'function');
+  } finally {
+    if (worker) await worker.close();
+    await closeRedis();
+  }
 });
