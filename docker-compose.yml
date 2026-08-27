@@ -26,6 +26,7 @@ services:
       start_period: 15s
 
   worker:
+    profiles: ["worker"]
     build: .
     restart: unless-stopped
     command: ["node", "src/infrastructure/rag-worker.js"]
