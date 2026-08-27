@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0f172a"><title>EduAI Platform | Dashboard</title><link rel="stylesheet" href="/dashboard.css">
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0f172a"><title>EduAI Platform | Dashboard</title><link rel="stylesheet" href="/dashboard.css"><link rel="stylesheet" href="/adaptive-learning.css">
 </head>
 <body>
   <main class="dashboard-shell">
@@ -16,12 +16,13 @@
         <article class="panel"><div class="section-heading compact"><div><h3 data-i18n="analytics">تحليلات الطلاب</h3><p data-i18n="analyticsDesc">مؤشرات سريعة عن الأداء وما يحتاج إلى دعم.</p></div></div><div id="teacherAnalytics" class="analytics-grid"></div><div id="subjectAnalytics" class="subject-list"></div></article>
       </section>
       <section id="student" hidden><div class="section-heading"><div><h2 data-i18n="studentSpace">مساحة الطالب</h2><p data-i18n="studentDesc">تعلّم، اختبر نفسك، وتابع مستوى الإتقان.</p></div></div><div id="studentStats" class="stat-grid"></div>
+        <article class="panel"><div class="section-heading compact"><div><h3>🧠 مسارك الذكي</h3><p>توصيات شخصية مرتبة حسب المهارات التي تحتاج إلى دعم أو تطوير.</p></div></div><div id="adaptiveLearning"><div class="adaptive-empty">جارٍ بناء مسارك التعليمي...</div></div></article>
         <article class="panel"><div class="section-heading compact"><div><h3 data-i18n="publishedLessons">الدروس المنشورة</h3><p data-i18n="availableLessons">ابدأ من الدروس المتاحة لك.</p></div><button id="refreshStudent" class="ghost" data-i18n="refresh">تحديث</button></div><div id="studentLessons" class="list-grid"></div></article>
         <article class="panel"><div class="section-heading compact"><div><h3 data-i18n="availableQuizzes">الاختبارات المتاحة</h3><p data-i18n="quizResultDesc">الإرسال يحسب الدرجة ويحدّث Mastery تلقائيًا.</p></div></div><div id="studentAssessments" class="list-grid"></div><div id="quizResult" class="result-box" hidden></div></article>
         <article class="panel"><div class="section-heading compact"><div><h3 data-i18n="yourProgress">تقدمك</h3><p data-i18n="progressDesc">أحدث المحاولات ومستوى الإتقان.</p></div></div><div id="progress" class="progress-list"></div></article>
       </section>
     </div>
   </main>
-  <script src="/dashboard-v2.js"></script><script src="/i18n-dashboard.js"></script>
+  <script src="/dashboard-v2.js"></script><script src="/i18n-dashboard.js"></script><script src="/adaptive-learning.js"></script>
 </body>
 </html>
