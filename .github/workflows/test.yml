@@ -6,7 +6,7 @@ on:
   pull_request:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: test-${{ github.workflow }}-${{ github.ref }}
@@ -15,6 +15,32 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: eduai
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd="pg_isready -U postgres -d eduai"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/eduai
+      REDIS_URL: redis://localhost:6379
+      NODE_ENV: test
+      RUN_RAG_WORKER: 'false'
+
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -24,11 +50,40 @@ jobs:
         with:
           node-version: 24.x
 
-      - name: Install dependencies
-        run: npm install
+      - name: Generate and persist lockfile when bootstrapping
+        run: |
+          if [ ! -f package-lock.json ]; then
+            npm install --package-lock-only
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add package-lock.json
+            git commit -m "chore(ci): add npm lockfile"
+            git push
+          fi
+
+      - name: Install dependencies deterministically
+        run: npm ci
+
+      - name: Run database migrations
+        run: npm run db:migrate
 
       - name: Run tests
         run: npm test
+
+      - name: Validate production readiness endpoint
+        run: |
+          node src/launcher.js > /tmp/eduai.log 2>&1 &
+          pid=$!
+          trap 'kill $pid || true' EXIT
+          for i in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:3000/ready; then
+              echo
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/eduai.log
+          exit 1
 
       - name: Validate production Docker build
         run: docker build --tag eduai-platform:ci .
