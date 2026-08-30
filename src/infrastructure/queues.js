@@ -9,8 +9,11 @@ const queues = new Map();
 function getQueue(name) { if (!queues.has(name)) queues.set(name, new Queue(name, { connection: connection() })); return queues.get(name); }
 
 function ragJobId(data) {
-  const identity = [data?.tenant_id, data?.document_id, data?.checksum].map((value) => String(value || '').trim()).join(':');
-  if (!identity || identity === '::') return undefined;
+  const tenantId = String(data?.tenant_id || '').trim();
+  const documentId = String(data?.document_id || '').trim();
+  const checksum = String(data?.checksum || '').trim();
+  if (!tenantId || !documentId || !checksum) return undefined;
+  const identity = `${tenantId}:${documentId}:${checksum}`;
   return `rag-${crypto.createHash('sha256').update(identity).digest('hex')}`;
 }
 
