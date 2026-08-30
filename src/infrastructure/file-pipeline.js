@@ -4,6 +4,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { enqueueRagJob } = require('./queues');
+const { requireStorageAdapter, buildTenantObjectKey, assertPrivateStorageResult } = require('./object-storage');
 
 const ALLOWED_TYPES = new Map([
   ['application/pdf', '.pdf'],
@@ -30,33 +31,76 @@ async function sha256File(filePath) {
   return hash.digest('hex');
 }
 
-async function malwareScan(filePath, scanner = process.env.CLAMAV_SOCKET || process.env.CLAMAV_HOST) {
-  if (!scanner) {
+async function malwareScan(filePath, scanner) {
+  if (typeof scanner !== 'function') {
     if (process.env.NODE_ENV === 'production' && process.env.ALLOW_UNSCANNED_UPLOADS !== 'true') {
-      throw new Error('Malware scanner is required before production uploads are accepted.');
+      throw new Error('Malware scanner adapter is required before production uploads are accepted.');
     }
     return { clean: process.env.NODE_ENV !== 'production', skipped: true };
-  }
-  if (typeof scanner !== 'function') {
-    throw new Error('Configured malware scanner adapter is not callable. Refusing to trust configuration alone.');
   }
   const result = await scanner(filePath);
   if (!result || result.clean !== true) return { clean: false, scanner: 'configured' };
   return { clean: true, scanner: 'configured' };
 }
 
-async function processUploadedDocument({ tenantId, documentId, filename, mimeType, size, localPath, objectKey, extract }) {
-  validateUpload({ filename, mimeType, size });
-  const scan = await malwareScan(localPath);
+async function processUploadedDocument({
+  tenantId,
+  documentId,
+  filename,
+  mimeType,
+  size,
+  localPath,
+  objectKey,
+  scanner,
+  storage,
+  extract,
+}) {
+  const validated = validateUpload({ filename, mimeType, size });
+  const scan = await malwareScan(localPath, scanner);
   if (!scan.clean) throw new Error('Upload failed malware scanning.');
 
-  const content = await extract(localPath, mimeType);
-  if (!content || !String(content.text || content).trim()) throw new Error('No extractable text found in document.');
-
   const checksum = await sha256File(localPath);
+  const resolvedObjectKey = objectKey || buildTenantObjectKey({
+    tenantId,
+    documentId,
+    checksum,
+    extension: validated.extension,
+  });
+
+  const objectStorage = requireStorageAdapter(storage);
+  const uploaded = await objectStorage.putPrivateObject({
+    localPath,
+    objectKey: resolvedObjectKey,
+    contentType: mimeType,
+    metadata: { tenantId: String(tenantId), documentId: String(documentId), checksum },
+  });
+  const stored = assertPrivateStorageResult(uploaded);
+  if (stored.objectKey !== resolvedObjectKey) {
+    throw new Error('Object storage returned an unexpected object key.');
+  }
+
+  const content = await extract(localPath, mimeType);
+  if (!content || !String(content.text || content).trim()) {
+    throw new Error('No extractable text found in document.');
+  }
+
   const text = String(content.text || content).trim();
-  await enqueueRagJob({ tenant_id: tenantId, document_id: documentId, source_title: filename, object_key: objectKey, checksum, text });
-  return { documentId, filename, checksum, queued: true };
+  await enqueueRagJob({
+    tenant_id: tenantId,
+    document_id: documentId,
+    source_title: filename,
+    object_key: resolvedObjectKey,
+    checksum,
+    text,
+  });
+  return { documentId, filename, checksum, objectKey: resolvedObjectKey, queued: true };
 }
 
-module.exports = { ALLOWED_TYPES, MAX_BYTES, validateUpload, sha256File, malwareScan, processUploadedDocument };
+module.exports = {
+  ALLOWED_TYPES,
+  MAX_BYTES,
+  validateUpload,
+  sha256File,
+  malwareScan,
+  processUploadedDocument,
+};
