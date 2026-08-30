@@ -9,7 +9,7 @@ test('production RAG processor chunks, embeds and persists documents', async () 
   const embeddingsClient = {
     embeddings: {
       async create({ input }) {
-        return { data: input.map((text, index) => ({ embedding: [index + 1, text.length] })) };
+        return { data: input.map((text, index) => ({ embedding: Array.from({ length: 1536 }, (_, dimension) => (index + 1) / (dimension + 1)) })) };
       },
     },
   };
@@ -27,8 +27,10 @@ test('production RAG processor chunks, embeds and persists documents', async () 
   assert.equal(result.chunks, chunkText(text).length);
   assert.equal(queries.length, result.chunks);
   assert.match(queries[0].sql, /knowledge_chunks/);
+  assert.match(queries[0].sql, /::vector/);
   assert.equal(queries[0].params[0], 'tenant-1');
   assert.equal(queries[0].params[1], 'doc-1');
+  assert.match(queries[0].params[6], /^\[/);
 });
 
 test('production RAG processor rejects missing required job data', async () => {

@@ -17,6 +17,19 @@ jobs:
     runs-on: ubuntu-latest
 
     services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_DB: eduai
+          POSTGRES_USER: eduai
+          POSTGRES_PASSWORD: eduai
+        options: >-
+          --health-cmd="pg_isready -U eduai -d eduai"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
       redis:
         image: redis:7-alpine
         ports:
@@ -28,6 +41,7 @@ jobs:
           --health-retries=20
 
     env:
+      DATABASE_URL: postgresql://eduai:eduai@127.0.0.1:5432/eduai
       REDIS_URL: redis://127.0.0.1:6379
       NODE_ENV: test
 
@@ -42,6 +56,12 @@ jobs:
 
       - name: Install dependencies
         run: npm install
+
+      - name: Apply database migrations
+        run: npm run db:migrate
+
+      - name: Verify pgvector
+        run: psql "$DATABASE_URL" -tAc "SELECT extversion FROM pg_extension WHERE extname='vector';"
 
       - name: Syntax and unit tests
         run: npm test
