@@ -32,16 +32,21 @@ services:
     command: ["node", "src/infrastructure/rag-worker.js"]
     environment:
       NODE_ENV: production
+      DATABASE_URL: postgresql://eduai:eduai@postgres:5432/eduai
+      DATABASE_SSL: "false"
       REDIS_URL: redis://redis:6379
       RUN_RAG_WORKER: "true"
-      RAG_PROCESSOR_MODULE: ${RAG_PROCESSOR_MODULE:-}
       RAG_WORKER_CONCURRENCY: ${RAG_WORKER_CONCURRENCY:-2}
+      RAG_EMBEDDING_MODEL: ${RAG_EMBEDDING_MODEL:-text-embedding-3-small}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
 
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     restart: unless-stopped
     environment:
       POSTGRES_DB: eduai
