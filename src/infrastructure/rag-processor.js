@@ -5,6 +5,7 @@ const { query } = require('../db');
 
 const DEFAULT_CHUNK_SIZE = 1200;
 const DEFAULT_CHUNK_OVERLAP = 150;
+const EMBEDDING_DIMENSIONS = 1536;
 
 function chunkText(text, size = DEFAULT_CHUNK_SIZE, overlap = DEFAULT_CHUNK_OVERLAP) {
   const value = String(text || '').trim();
@@ -18,6 +19,13 @@ function chunkText(text, size = DEFAULT_CHUNK_SIZE, overlap = DEFAULT_CHUNK_OVER
     if (start + chunkSize >= value.length) break;
   }
   return chunks;
+}
+
+function embeddingLiteral(values) {
+  if (!Array.isArray(values) || values.length !== EMBEDDING_DIMENSIONS || values.some((value) => !Number.isFinite(value))) {
+    throw new Error(`Embedding must contain exactly ${EMBEDDING_DIMENSIONS} finite numeric values.`);
+  }
+  return `[${values.join(',')}]`;
 }
 
 function createProductionProcessor({ dbQuery = query, embeddingsClient, embeddingModel = process.env.RAG_EMBEDDING_MODEL || 'text-embedding-3-small' } = {}) {
@@ -37,12 +45,13 @@ function createProductionProcessor({ dbQuery = query, embeddingsClient, embeddin
     if (embeddings.length !== chunks.length) throw new Error('Embedding response count did not match chunk count.');
 
     for (let i = 0; i < chunks.length; i += 1) {
+      const embedding = embeddingLiteral(embeddings[i]?.embedding || []);
       await dbQuery(
         `INSERT INTO knowledge_chunks (tenant_id, document_id, source_title, page, chunk_index, content, embedding)
-         VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
+         VALUES ($1, $2, $3, $4, $5, $6, $7::vector)
          ON CONFLICT (tenant_id, document_id, chunk_index)
          DO UPDATE SET source_title=EXCLUDED.source_title, page=EXCLUDED.page, content=EXCLUDED.content, embedding=EXCLUDED.embedding`,
-        [tenantId, documentId, sourceTitle, Number.isInteger(page) ? page : null, i, chunks[i], JSON.stringify(embeddings[i]?.embedding || [])]
+        [tenantId, documentId, sourceTitle, Number.isInteger(page) ? page : null, i, chunks[i], embedding]
       );
     }
 
@@ -52,4 +61,4 @@ function createProductionProcessor({ dbQuery = query, embeddingsClient, embeddin
 
 const processDocument = createProductionProcessor();
 
-module.exports = { chunkText, createProductionProcessor, processDocument };
+module.exports = { chunkText, embeddingLiteral, createProductionProcessor, processDocument };
