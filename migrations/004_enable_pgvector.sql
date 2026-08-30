@@ -1,16 +1,15 @@
 -- Phase 4: pgvector-backed knowledge chunks.
--- Requires a PostgreSQL image that includes the pgvector extension.
 CREATE EXTENSION IF NOT EXISTS vector;
 
 CREATE TABLE IF NOT EXISTS knowledge_chunks (
   id BIGSERIAL PRIMARY KEY,
   tenant_id TEXT NOT NULL,
   document_id TEXT NOT NULL,
+  page INTEGER,
   chunk_index INTEGER NOT NULL,
   content TEXT NOT NULL,
   embedding vector(1536) NOT NULL,
   source_title TEXT,
-  page INTEGER,
   object_key TEXT,
   checksum TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
