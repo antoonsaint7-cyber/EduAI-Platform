@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS knowledge_chunks (
   content TEXT NOT NULL,
   embedding vector(1536) NOT NULL,
   source_title TEXT,
+  page INTEGER,
   object_key TEXT,
   checksum TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
