@@ -3,6 +3,7 @@ const crypto = require('node:crypto');
 const OpenAI = require('openai');
 const { query, withTransaction, close } = require('./src/db');
 const { normalizeEmail, hashPassword, verifyPassword, createSession, setSessionCookie, clearSessionCookie, getCurrentUser } = require('./src/auth');
+const { validatePassword, hashToken, createResetToken, createVerificationToken, createMfaChallenge, createMfaSecret, createRecoveryCodes, hashRecoveryCode, verifyTotp, MFA_MAX_ATTEMPTS } = require('./src/auth-security');
 const { rateLimit } = require('./src/rate-limit');
 const { buildEducationalPrompt } = require('./src/education');
 const { generateLesson, generateCourse, generateQuiz } = require('./src/ai-content');
@@ -35,6 +36,8 @@ const aiLimiter = rateLimit({ windowMs: 60_000, max: 10 });
 
 function validText(value, max = 160) { return typeof value === 'string' && value.trim().length > 0 && value.trim().length <= max; }
 function validEmail(value) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value); }
+function safeUser(user) { const copy = { ...user }; delete copy.password_hash; delete copy.mfa_secret; return copy; }
+function exposeDevToken(res, key, value) { if (process.env.NODE_ENV !== 'production' && process.env.AUTH_DEBUG_TOKENS === 'true') res.setHeader(`X-EduAI-${key}`, value); }
 function requireRole(...roles) {
   return async (req, res, next) => {
     try {
@@ -60,20 +63,48 @@ app.post('/api/auth/register', authLimiter, async (req, res, next) => {
     const password = String(req.body?.password || '');
     const role = req.body?.role === 'teacher' ? 'teacher' : 'student';
     const tenantName = String(req.body?.tenantName || `${name} School`).trim();
-    if (!validText(name) || !validEmail(email) || password.length < 10 || password.length > 200 || !validText(tenantName, 160)) return res.status(400).json({ error: 'الاسم والبريد وكلمة المرور (10 أحرف على الأقل) واسم المؤسسة مطلوبة بشكل صحيح.' });
+    if (!validText(name) || !validEmail(email) || !validatePassword(password) || !validText(tenantName, 160)) return res.status(400).json({ error: 'الاسم والبريد وكلمة المرور (10 أحرف على الأقل) واسم المؤسسة مطلوبة بشكل صحيح.' });
     const result = await withTransaction(async db => {
       const tenant = await db.query('INSERT INTO tenants(name) VALUES($1) RETURNING id', [tenantName]);
       const passwordHash = await hashPassword(password);
-      const user = await db.query('INSERT INTO users(tenant_id,email,password_hash,role,name) VALUES($1,$2,$3,$4,$5) RETURNING id,tenant_id,email,name,role', [tenant.rows[0].id, email, passwordHash, role, name]);
+      const user = await db.query('INSERT INTO users(tenant_id,email,password_hash,role,name) VALUES($1,$2,$3,$4,$5) RETURNING id,tenant_id,email,name,role,email_verified_at,mfa_enabled', [tenant.rows[0].id, email, passwordHash, role, name]);
       return user.rows[0];
     });
-    const session = await createSession(result.id);
-    setSessionCookie(res, session.token, session.expires);
-    res.status(201).json({ user: result });
+    const verification = createVerificationToken();
+    await query('DELETE FROM email_verification_tokens WHERE user_id=$1', [result.id]);
+    await query('INSERT INTO email_verification_tokens(user_id,token_hash,expires_at) VALUES($1,$2,$3)', [result.id, verification.tokenHash, verification.expiresAt]);
+    exposeDevToken(res, 'Verification-Token', verification.token);
+    res.status(201).json({ user: safeUser(result), verification_required: true });
   } catch (error) {
     if (error.code === '23505') return res.status(409).json({ error: 'البريد الإلكتروني مستخدم بالفعل.' });
     next(error);
   }
+});
+
+app.post('/api/auth/verify-email', authLimiter, async (req, res, next) => {
+  try {
+    const token = String(req.body?.token || '').trim();
+    if (!token) return res.status(400).json({ error: 'رمز التحقق مطلوب.' });
+    const result = await query(`UPDATE users u SET email_verified_at=now() FROM email_verification_tokens t WHERE t.user_id=u.id AND t.token_hash=$1 AND t.expires_at > now() RETURNING u.id,u.tenant_id,u.email,u.name,u.role,u.email_verified_at,u.mfa_enabled`, [hashToken(token)]);
+    if (!result.rows[0]) return res.status(400).json({ error: 'رمز التحقق غير صالح أو منتهي.' });
+    await query('DELETE FROM email_verification_tokens WHERE user_id=$1', [result.rows[0].id]);
+    res.json({ user: safeUser(result.rows[0]), verified: true });
+  } catch (error) { next(error); }
+});
+
+app.post('/api/auth/resend-verification', authLimiter, async (req, res, next) => {
+  try {
+    const email = normalizeEmail(req.body?.email);
+    if (!validEmail(email)) return res.status(400).json({ error: 'البريد الإلكتروني غير صحيح.' });
+    const result = await query('SELECT id,email_verified_at FROM users WHERE email=$1 LIMIT 1', [email]);
+    if (result.rows[0] && !result.rows[0].email_verified_at) {
+      const verification = createVerificationToken();
+      await query('DELETE FROM email_verification_tokens WHERE user_id=$1', [result.rows[0].id]);
+      await query('INSERT INTO email_verification_tokens(user_id,token_hash,expires_at) VALUES($1,$2,$3)', [result.rows[0].id, verification.tokenHash, verification.expiresAt]);
+      exposeDevToken(res, 'Verification-Token', verification.token);
+    }
+    res.json({ sent: true });
+  } catch (error) { next(error); }
 });
 
 app.post('/api/auth/login', authLimiter, async (req, res, next) => {
@@ -81,20 +112,121 @@ app.post('/api/auth/login', authLimiter, async (req, res, next) => {
     const email = normalizeEmail(req.body?.email);
     const password = String(req.body?.password || '');
     if (!validEmail(email) || !password) return res.status(400).json({ error: 'البريد وكلمة المرور مطلوبان.' });
-    const result = await query('SELECT id,tenant_id,email,password_hash,name,role FROM users WHERE email=$1 LIMIT 1', [email]);
+    const result = await query('SELECT id,tenant_id,email,password_hash,name,role,email_verified_at,mfa_enabled FROM users WHERE email=$1 LIMIT 1', [email]);
     const user = result.rows[0];
     if (!user || !(await verifyPassword(password, user.password_hash))) return res.status(401).json({ error: 'بيانات الدخول غير صحيحة.' });
-    delete user.password_hash;
+    if (!user.email_verified_at) return res.status(403).json({ error: 'يجب تأكيد البريد الإلكتروني قبل تسجيل الدخول.', verification_required: true });
+    if (user.mfa_enabled) {
+      const challenge = createMfaChallenge();
+      await query('DELETE FROM mfa_challenges WHERE user_id=$1', [user.id]);
+      await query('INSERT INTO mfa_challenges(user_id,token_hash,expires_at) VALUES($1,$2,$3)', [user.id, challenge.tokenHash, challenge.expiresAt]);
+      return res.json({ mfa_required: true, challenge_token: challenge.token });
+    }
     const session = await createSession(user.id);
     setSessionCookie(res, session.token, session.expires);
-    res.json({ user });
+    res.json({ user: safeUser(user) });
+  } catch (error) { next(error); }
+});
+
+app.post('/api/auth/mfa/verify-login', authLimiter, async (req, res, next) => {
+  try {
+    const challengeToken = String(req.body?.challengeToken || '').trim();
+    const code = String(req.body?.code || '').trim();
+    if (!challengeToken || !code) return res.status(400).json({ error: 'رمز التحدي ورمز MFA مطلوبان.' });
+    const result = await query(`SELECT c.id,c.user_id,c.expires_at,c.attempts,m.secret,m.recovery_code_hashes FROM mfa_challenges c JOIN mfa_credentials m ON m.user_id=c.user_id JOIN users u ON u.id=c.user_id WHERE c.token_hash=$1 AND c.expires_at > now() AND u.mfa_enabled=true LIMIT 1`, [hashToken(challengeToken)]);
+    const challenge = result.rows[0];
+    if (!challenge) return res.status(401).json({ error: 'تحدي MFA غير صالح أو منتهي.' });
+    const recovery = Array.isArray(challenge.recovery_code_hashes) ? challenge.recovery_code_hashes : [];
+    const recoveryHash = hashRecoveryCode(code);
+    const recoveryIndex = recovery.findIndex(item => typeof item === 'string' && item === recoveryHash);
+    const valid = verifyTotp(challenge.secret, code) || recoveryIndex >= 0;
+    if (!valid) {
+      if (challenge.attempts + 1 >= MFA_MAX_ATTEMPTS) await query('DELETE FROM mfa_challenges WHERE id=$1', [challenge.id]);
+      else await query('UPDATE mfa_challenges SET attempts=attempts+1 WHERE id=$1', [challenge.id]);
+      return res.status(401).json({ error: 'رمز MFA غير صحيح.' });
+    }
+    if (recoveryIndex >= 0) {
+      recovery.splice(recoveryIndex, 1);
+      await query('UPDATE mfa_credentials SET recovery_code_hashes=$2::jsonb WHERE user_id=$1', [challenge.user_id, JSON.stringify(recovery)]);
+    }
+    await query('DELETE FROM mfa_challenges WHERE id=$1', [challenge.id]);
+    const userResult = await query('SELECT id,tenant_id,email,name,role,email_verified_at,mfa_enabled FROM users WHERE id=$1', [challenge.user_id]);
+    const session = await createSession(challenge.user_id);
+    setSessionCookie(res, session.token, session.expires);
+    res.json({ user: safeUser(userResult.rows[0]), authenticated: true });
+  } catch (error) { next(error); }
+});
+
+app.post('/api/auth/mfa/setup', requireRole('teacher', 'student'), async (req, res, next) => {
+  try {
+    const existing = await query('SELECT user_id,confirmed_at FROM mfa_credentials WHERE user_id=$1', [req.user.id]);
+    if (existing.rows[0]?.confirmed_at) return res.status(409).json({ error: 'MFA مفعل بالفعل.' });
+    const secret = createMfaSecret();
+    const recoveryCodes = createRecoveryCodes();
+    await query('INSERT INTO mfa_credentials(user_id,secret,recovery_code_hashes) VALUES($1,$2,$3::jsonb) ON CONFLICT(user_id) DO UPDATE SET secret=EXCLUDED.secret,recovery_code_hashes=EXCLUDED.recovery_code_hashes,confirmed_at=NULL', [req.user.id, secret, JSON.stringify(recoveryCodes.map(hashRecoveryCode))]);
+    res.json({ secret, recovery_codes: recoveryCodes, setup_required: true });
+  } catch (error) { next(error); }
+});
+
+app.post('/api/auth/mfa/confirm', requireRole('teacher', 'student'), async (req, res, next) => {
+  try {
+    const code = String(req.body?.code || '').trim();
+    const result = await query('SELECT secret FROM mfa_credentials WHERE user_id=$1', [req.user.id]);
+    if (!result.rows[0] || !verifyTotp(result.rows[0].secret, code)) return res.status(400).json({ error: 'رمز TOTP غير صحيح.' });
+    await query('UPDATE mfa_credentials SET confirmed_at=now() WHERE user_id=$1', [req.user.id]);
+    await query('UPDATE users SET mfa_enabled=true WHERE id=$1', [req.user.id]);
+    res.json({ enabled: true });
+  } catch (error) { next(error); }
+});
+
+app.post('/api/auth/mfa/disable', requireRole('teacher', 'student'), async (req, res, next) => {
+  try {
+    const code = String(req.body?.code || '').trim();
+    const result = await query('SELECT secret FROM mfa_credentials WHERE user_id=$1 AND confirmed_at IS NOT NULL', [req.user.id]);
+    if (!result.rows[0] || !verifyTotp(result.rows[0].secret, code)) return res.status(400).json({ error: 'رمز TOTP غير صحيح.' });
+    await query('UPDATE users SET mfa_enabled=false WHERE id=$1', [req.user.id]);
+    await query('DELETE FROM mfa_challenges WHERE user_id=$1', [req.user.id]);
+    res.json({ enabled: false });
+  } catch (error) { next(error); }
+});
+
+app.post('/api/auth/password-reset/request', authLimiter, async (req, res, next) => {
+  try {
+    const email = normalizeEmail(req.body?.email);
+    if (!validEmail(email)) return res.status(400).json({ error: 'البريد الإلكتروني غير صحيح.' });
+    const result = await query('SELECT id FROM users WHERE email=$1 LIMIT 1', [email]);
+    if (result.rows[0]) {
+      const reset = createResetToken();
+      await query('DELETE FROM password_reset_tokens WHERE user_id=$1 AND used_at IS NULL', [result.rows[0].id]);
+      await query('INSERT INTO password_reset_tokens(user_id,token_hash,expires_at) VALUES($1,$2,$3)', [result.rows[0].id, reset.tokenHash, reset.expiresAt]);
+      exposeDevToken(res, 'Reset-Token', reset.token);
+    }
+    res.json({ sent: true });
+  } catch (error) { next(error); }
+});
+
+app.post('/api/auth/password-reset/confirm', authLimiter, async (req, res, next) => {
+  try {
+    const token = String(req.body?.token || '').trim();
+    const password = String(req.body?.password || '');
+    if (!token || !validatePassword(password)) return res.status(400).json({ error: 'رمز إعادة التعيين وكلمة المرور الجديدة مطلوبان بشكل صحيح.' });
+    const result = await query('SELECT id,user_id FROM password_reset_tokens WHERE token_hash=$1 AND used_at IS NULL AND expires_at > now() LIMIT 1', [hashToken(token)]);
+    if (!result.rows[0]) return res.status(400).json({ error: 'رمز إعادة التعيين غير صالح أو منتهي.' });
+    const passwordHash = await hashPassword(password);
+    await withTransaction(async db => {
+      await db.query('UPDATE users SET password_hash=$1 WHERE id=$2', [passwordHash, result.rows[0].user_id]);
+      await db.query('UPDATE password_reset_tokens SET used_at=now() WHERE id=$1 AND used_at IS NULL', [result.rows[0].id]);
+      await db.query('DELETE FROM sessions WHERE user_id=$1', [result.rows[0].user_id]);
+      await db.query('DELETE FROM mfa_challenges WHERE user_id=$1', [result.rows[0].user_id]);
+    });
+    res.json({ reset: true });
   } catch (error) { next(error); }
 });
 
 app.post('/api/auth/logout', async (req, res, next) => {
   try {
     const token = (req.headers.cookie || '').match(/(?:^|;\s*)eduai_session=([^;]+)/)?.[1];
-    if (token) await query('DELETE FROM sessions WHERE token_hash=$1', [crypto.createHash('sha256').update(decodeURIComponent(token)).digest('hex')]);
+    if (token) await query('DELETE FROM sessions WHERE token_hash=$1', [hashToken(decodeURIComponent(token))]);
     clearSessionCookie(res);
     res.status(204).end();
   } catch (error) { next(error); }
@@ -104,7 +236,7 @@ app.get('/api/auth/me', async (req, res, next) => {
   try {
     const user = await getCurrentUser(req);
     if (!user) return res.status(401).json({ error: 'غير مسجل الدخول.' });
-    res.json({ user });
+    res.json({ user: safeUser(user) });
   } catch (error) { next(error); }
 });
 
@@ -122,161 +254,84 @@ app.post('/api/chat', chatLimiter, async (req, res, next) => {
 
 app.post('/api/ai/lesson-generate', aiLimiter, requireRole('teacher'), async (req, res, next) => {
   try {
-    const title = String(req.body?.title || '').trim();
-    const subject = String(req.body?.subject || '').trim();
-    const level = String(req.body?.level || '').trim();
-    const goals = String(req.body?.goals || '').trim();
-    const sourceText = String(req.body?.sourceText || '').trim().slice(0, 30000);
+    const title = String(req.body?.title || '').trim(); const subject = String(req.body?.subject || '').trim(); const level = String(req.body?.level || '').trim(); const goals = String(req.body?.goals || '').trim(); const sourceText = String(req.body?.sourceText || '').trim().slice(0, 30000);
     if (!validText(title, 200) || !validText(subject, 160) || !validText(level, 160) || goals.length > 1000) return res.status(400).json({ error: 'عنوان الدرس والمادة والمستوى مطلوبة.' });
-    const lesson = await generateLesson({ client, title, subject, level, goals, sourceText });
-    res.json({ lesson });
+    const lesson = await generateLesson({ client, title, subject, level, goals, sourceText }); res.json({ lesson });
   } catch (error) { next(error); }
 });
 
 app.post('/api/ai/course-generate', aiLimiter, requireRole('teacher'), async (req, res, next) => {
   try {
-    const title = String(req.body?.title || '').trim();
-    const subject = String(req.body?.subject || '').trim();
-    const level = String(req.body?.level || '').trim();
-    const sourceText = String(req.body?.sourceText || '').trim().slice(0, 30000);
-    const lessonCount = Number(req.body?.lessonCount || 5);
+    const title = String(req.body?.title || '').trim(); const subject = String(req.body?.subject || '').trim(); const level = String(req.body?.level || '').trim(); const sourceText = String(req.body?.sourceText || '').trim().slice(0, 30000); const lessonCount = Number(req.body?.lessonCount || 5);
     if (!validText(title, 200) || !validText(subject, 160) || !validText(level, 160) || !Number.isInteger(lessonCount) || lessonCount < 3 || lessonCount > 8) return res.status(400).json({ error: 'بيانات الكورس غير صحيحة.' });
-    const course = await generateCourse({ client, title, subject, level, lessonCount, sourceText });
-    res.json({ course });
+    const course = await generateCourse({ client, title, subject, level, lessonCount, sourceText }); res.json({ course });
   } catch (error) { next(error); }
 });
 
 app.post('/api/ai/quiz-generate', aiLimiter, requireRole('teacher'), async (req, res, next) => {
   try {
-    const lessonId = String(req.body?.lessonId || '');
-    const questionCount = Number(req.body?.questionCount || 10);
+    const lessonId = String(req.body?.lessonId || ''); const questionCount = Number(req.body?.questionCount || 10);
     if (!/^[0-9a-f-]{36}$/i.test(lessonId) || !Number.isInteger(questionCount) || questionCount < 5 || questionCount > 15) return res.status(400).json({ error: 'الدرس وعدد الأسئلة غير صحيحين.' });
-    const lessonResult = await query('SELECT id,title,subject,level,content FROM lessons WHERE id=$1 AND tenant_id=$2 AND created_by=$3', [lessonId, req.user.tenant_id, req.user.id]);
-    const lesson = lessonResult.rows[0];
+    const lessonResult = await query('SELECT id,title,subject,level,content FROM lessons WHERE id=$1 AND tenant_id=$2 AND created_by=$3', [lessonId, req.user.tenant_id, req.user.id]); const lesson = lessonResult.rows[0];
     if (!lesson) return res.status(404).json({ error: 'الدرس غير موجود.' });
-    const quiz = await generateQuiz({ client, title: lesson.title, subject: lesson.subject, level: lesson.level, lessonContent: lesson.content, questionCount });
-    const questions = Array.isArray(quiz.questions) ? quiz.questions.slice(0, questionCount).filter(q => q && typeof q.question === 'string' && Number.isInteger(q.answer_index)) : [];
+    const quiz = await generateQuiz({ client, title: lesson.title, subject: lesson.subject, level: lesson.level, lessonContent: lesson.content, questionCount }); const questions = Array.isArray(quiz.questions) ? quiz.questions.slice(0, questionCount).filter(q => q && typeof q.question === 'string' && Number.isInteger(q.answer_index)) : [];
     if (questions.length < 5) return res.status(422).json({ error: 'الناتج المولد لم يحتوِ على أسئلة كافية.' });
-    const stored = await query('INSERT INTO assessments(lesson_id,tenant_id,questions,created_by) VALUES($1,$2,$3,$4) RETURNING id,lesson_id,created_at', [lesson.id, req.user.tenant_id, JSON.stringify({ ...quiz, questions }), req.user.id]);
-    res.status(201).json({ assessment: stored.rows[0], quiz: { ...quiz, questions } });
+    const stored = await query('INSERT INTO assessments(lesson_id,tenant_id,questions,created_by) VALUES($1,$2,$3,$4) RETURNING id,lesson_id,created_at', [lesson.id, req.user.tenant_id, JSON.stringify({ ...quiz, questions }), req.user.id]); res.status(201).json({ assessment: stored.rows[0], quiz: { ...quiz, questions } });
   } catch (error) { next(error); }
 });
 
 app.get('/api/assessments', requireRole('teacher', 'student'), async (req, res, next) => {
-  try {
-    const lessonId = req.query.lessonId ? String(req.query.lessonId) : null;
-    const result = await query('SELECT a.id,a.lesson_id,a.created_at,l.title,l.subject,l.level,a.questions FROM assessments a JOIN lessons l ON l.id=a.lesson_id WHERE a.tenant_id=$1 AND l.status=\'published\' AND ($2::uuid IS NULL OR a.lesson_id=$2::uuid) ORDER BY a.created_at DESC', [req.user.tenant_id, lessonId]);
-    res.json({ assessments: result.rows });
-  } catch (error) { next(error); }
+  try { const lessonId = req.query.lessonId ? String(req.query.lessonId) : null; const result = await query('SELECT a.id,a.lesson_id,a.created_at,l.title,l.subject,l.level,a.questions FROM assessments a JOIN lessons l ON l.id=a.lesson_id WHERE a.tenant_id=$1 AND l.status=\'published\' AND ($2::uuid IS NULL OR a.lesson_id=$2::uuid) ORDER BY a.created_at DESC', [req.user.tenant_id, lessonId]); res.json({ assessments: result.rows }); }
+  catch (error) { next(error); }
 });
 
 app.post('/api/assessments/:id/submit', writeLimiter, requireRole('student'), async (req, res, next) => {
   try {
-    const answers = Array.isArray(req.body?.answers) ? req.body.answers : [];
-    const result = await query('SELECT a.id,a.lesson_id,a.questions,l.subject,l.title FROM assessments a JOIN lessons l ON l.id=a.lesson_id WHERE a.id=$1 AND a.tenant_id=$2 AND l.status=\'published\'', [req.params.id, req.user.tenant_id]);
-    const assessment = result.rows[0];
-    if (!assessment) return res.status(404).json({ error: 'الاختبار غير موجود.' });
-    const payload = typeof assessment.questions === 'string' ? JSON.parse(assessment.questions) : assessment.questions;
-    const questions = Array.isArray(payload?.questions) ? payload.questions : [];
-    const normalized = answers.slice(0, questions.length).map(Number);
-    let correct = 0;
-    const review = questions.map((q, index) => { const isCorrect = normalized[index] === Number(q.answer_index); if (isCorrect) correct += 1; return { question: q.question, selected: Number.isInteger(normalized[index]) ? normalized[index] : null, correct: isCorrect, explanation: q.explanation || '' }; });
-    const score = questions.length ? Math.round((correct / questions.length) * 10000) / 100 : 0;
-    const progressResult = await query('INSERT INTO progress(tenant_id,student_id,lesson_id,mastery,last_score,attempts) VALUES($1,$2,$3,$4,$5,1) ON CONFLICT(student_id,lesson_id) DO UPDATE SET last_score=EXCLUDED.last_score, attempts=progress.attempts+1, mastery=LEAST(100, ROUND((progress.mastery*0.7 + EXCLUDED.last_score*0.3)::numeric,2)) RETURNING *', [req.user.tenant_id, req.user.id, assessment.lesson_id, score, score]);
-    const adaptive = await applyAdaptiveAssessment({ query, user: req.user, assessment, questions, answers });
-    res.json({ score, correct, total: questions.length, review, progress: progressResult.rows[0], adaptive });
+    const answers = Array.isArray(req.body?.answers) ? req.body.answers : []; const result = await query('SELECT a.id,a.lesson_id,a.questions,l.subject,l.title FROM assessments a JOIN lessons l ON l.id=a.lesson_id WHERE a.id=$1 AND a.tenant_id=$2 AND l.status=\'published\'', [req.params.id, req.user.tenant_id]); const assessment = result.rows[0];
+    if (!assessment) return res.status(404).json({ error: 'الاختبار غير موجود.' }); const payload = typeof assessment.questions === 'string' ? JSON.parse(assessment.questions) : assessment.questions; const questions = Array.isArray(payload?.questions) ? payload.questions : []; const normalized = answers.slice(0, questions.length).map(Number); let correct = 0;
+    const review = questions.map((q, index) => { const isCorrect = normalized[index] === Number(q.answer_index); if (isCorrect) correct += 1; return { question: q.question, selected: Number.isInteger(normalized[index]) ? normalized[index] : null, correct: isCorrect, explanation: q.explanation || '' }; }); const score = questions.length ? Math.round((correct / questions.length) * 10000) / 100 : 0;
+    const progressResult = await query('INSERT INTO progress(tenant_id,student_id,lesson_id,mastery,last_score,attempts) VALUES($1,$2,$3,$4,$5,1) ON CONFLICT(student_id,lesson_id) DO UPDATE SET last_score=EXCLUDED.last_score, attempts=progress.attempts+1, mastery=LEAST(100, ROUND((progress.mastery*0.7 + EXCLUDED.last_score*0.3)::numeric,2)) RETURNING *', [req.user.tenant_id, req.user.id, assessment.lesson_id, score, score]); const adaptive = await applyAdaptiveAssessment({ query, user: req.user, assessment, questions, answers }); res.json({ score, correct, total: questions.length, review, progress: progressResult.rows[0], adaptive });
   } catch (error) { next(error); }
 });
 
 app.post('/api/lessons', writeLimiter, requireRole('teacher'), async (req, res, next) => {
-  try {
-    const title = String(req.body?.title || '').trim();
-    const subject = String(req.body?.subject || '').trim();
-    const level = String(req.body?.level || '').trim();
-    const content = String(req.body?.content || '').trim();
-    const sourceRefs = Array.isArray(req.body?.sourceRefs) ? req.body.sourceRefs.slice(0, 50) : [];
-    if (!validText(title, 200) || subject.length > 160 || level.length > 160 || content.length > 100000) return res.status(400).json({ error: 'بيانات الدرس غير صحيحة.' });
-    const result = await query('INSERT INTO lessons(tenant_id,title,subject,level,content,source_refs,created_by,status) VALUES($1,$2,$3,$4,$5,$6,$7,\'review\') RETURNING *', [req.user.tenant_id, title, subject, level, content, JSON.stringify(sourceRefs), req.user.id]);
-    res.status(201).json({ lesson: result.rows[0] });
-  } catch (error) { next(error); }
+  try { const title = String(req.body?.title || '').trim(); const subject = String(req.body?.subject || '').trim(); const level = String(req.body?.level || '').trim(); const content = String(req.body?.content || '').trim(); const sourceRefs = Array.isArray(req.body?.sourceRefs) ? req.body.sourceRefs.slice(0, 50) : []; if (!validText(title, 200) || subject.length > 160 || level.length > 160 || content.length > 100000) return res.status(400).json({ error: 'بيانات الدرس غير صحيحة.' }); const result = await query('INSERT INTO lessons(tenant_id,title,subject,level,content,source_refs,created_by,status) VALUES($1,$2,$3,$4,$5,$6,$7,\'review\') RETURNING *', [req.user.tenant_id, title, subject, level, content, JSON.stringify(sourceRefs), req.user.id]); res.status(201).json({ lesson: result.rows[0] }); }
+  catch (error) { next(error); }
 });
 
 app.post('/api/lessons/:id/publish', writeLimiter, requireRole('teacher'), async (req, res, next) => {
-  try {
-    const result = await query('UPDATE lessons SET status=\'published\' WHERE id=$1 AND tenant_id=$2 AND created_by=$3 AND status=\'review\' RETURNING *', [req.params.id, req.user.tenant_id, req.user.id]);
-    if (!result.rows[0]) return res.status(404).json({ error: 'الدرس غير موجود أو لم يمر بمرحلة المراجعة.' });
-    res.json({ lesson: result.rows[0] });
-  } catch (error) { next(error); }
+  try { const result = await query('UPDATE lessons SET status=\'published\' WHERE id=$1 AND tenant_id=$2 AND created_by=$3 AND status=\'review\' RETURNING *', [req.params.id, req.user.tenant_id, req.user.id]); if (!result.rows[0]) return res.status(404).json({ error: 'الدرس غير موجود أو لم يمر بمرحلة المراجعة.' }); res.json({ lesson: result.rows[0] }); }
+  catch (error) { next(error); }
 });
 
 app.get('/api/lessons', requireRole('teacher', 'student'), async (req, res, next) => {
-  try {
-    const status = req.user.role === 'student' ? 'published' : (['draft','review','published','archived'].includes(req.query.status) ? req.query.status : 'review');
-    const result = await query('SELECT id,title,subject,level,content,source_refs,status,created_at,updated_at FROM lessons WHERE tenant_id=$1 AND status=$2 ORDER BY updated_at DESC', [req.user.tenant_id, status]);
-    res.json({ lessons: result.rows });
-  } catch (error) { next(error); }
+  try { const status = req.user.role === 'student' ? 'published' : (['draft','review','published','archived'].includes(req.query.status) ? req.query.status : 'review'); const result = await query('SELECT id,title,subject,level,content,source_refs,status,created_at,updated_at FROM lessons WHERE tenant_id=$1 AND status=$2 ORDER BY updated_at DESC', [req.user.tenant_id, status]); res.json({ lessons: result.rows }); }
+  catch (error) { next(error); }
 });
 
 app.get('/api/progress', requireRole('student'), async (req, res, next) => {
-  try {
-    const result = await query('SELECT p.lesson_id,p.mastery,p.last_score,p.attempts,p.updated_at,l.title,l.subject,l.level FROM progress p JOIN lessons l ON l.id=p.lesson_id WHERE p.tenant_id=$1 AND p.student_id=$2 ORDER BY p.updated_at DESC', [req.user.tenant_id, req.user.id]);
-    res.json({ progress: result.rows });
-  } catch (error) { next(error); }
+  try { const result = await query('SELECT p.lesson_id,p.mastery,p.last_score,p.attempts,p.updated_at,l.title,l.subject,l.level FROM progress p JOIN lessons l ON l.id=p.lesson_id WHERE p.tenant_id=$1 AND p.student_id=$2 ORDER BY p.updated_at DESC', [req.user.tenant_id, req.user.id]); res.json({ progress: result.rows }); }
+  catch (error) { next(error); }
 });
 
 app.post('/api/progress', writeLimiter, requireRole('student'), async (req, res, next) => {
-  try {
-    const lessonId = String(req.body?.lessonId || '');
-    const score = Number(req.body?.score);
-    if (!/^[0-9a-f-]{36}$/i.test(lessonId) || !Number.isFinite(score) || score < 0 || score > 100) return res.status(400).json({ error: 'الدرس والنتيجة مطلوبان بشكل صحيح.' });
-    const lesson = await query('SELECT id FROM lessons WHERE id=$1 AND tenant_id=$2 AND status=\'published\'', [lessonId, req.user.tenant_id]);
-    if (!lesson.rows[0]) return res.status(404).json({ error: 'الدرس غير متاح.' });
-    const result = await query('INSERT INTO progress(tenant_id,student_id,lesson_id,mastery,last_score,attempts) VALUES($1,$2,$3,$4,$5,1) ON CONFLICT(student_id,lesson_id) DO UPDATE SET last_score=EXCLUDED.last_score, attempts=progress.attempts+1, mastery=LEAST(100, ROUND((progress.mastery*0.7 + EXCLUDED.last_score*0.3)::numeric,2)) RETURNING *', [req.user.tenant_id, req.user.id, lessonId, score, score]);
-    res.json({ progress: result.rows[0] });
-  } catch (error) { next(error); }
+  try { const lessonId = String(req.body?.lessonId || ''); const score = Number(req.body?.score); if (!/^[0-9a-f-]{36}$/i.test(lessonId) || !Number.isFinite(score) || score < 0 || score > 100) return res.status(400).json({ error: 'الدرس والنتيجة مطلوبان بشكل صحيح.' }); const lesson = await query('SELECT id FROM lessons WHERE id=$1 AND tenant_id=$2 AND status=\'published\'', [lessonId, req.user.tenant_id]); if (!lesson.rows[0]) return res.status(404).json({ error: 'الدرس غير متاح.' }); const result = await query('INSERT INTO progress(tenant_id,student_id,lesson_id,mastery,last_score,attempts) VALUES($1,$2,$3,$4,$5,1) ON CONFLICT(student_id,lesson_id) DO UPDATE SET last_score=EXCLUDED.last_score, attempts=progress.attempts+1, mastery=LEAST(100, ROUND((progress.mastery*0.7 + EXCLUDED.last_score*0.3)::numeric,2)) RETURNING *', [req.user.tenant_id, req.user.id, lessonId, score, score]); res.json({ progress: result.rows[0] }); }
+  catch (error) { next(error); }
 });
 
 app.get('/api/analytics/teacher', requireRole('teacher'), async (req, res, next) => {
-  try {
-    const tenantId = req.user.tenant_id;
-    const [lessons, students, mastery, atRisk, subjects] = await Promise.all([
-      query('SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE status=\'published\')::int AS published, COUNT(*) FILTER (WHERE status=\'review\')::int AS review FROM lessons WHERE tenant_id=$1', [tenantId]),
-      query('SELECT COUNT(*)::int AS total FROM users WHERE tenant_id=$1 AND role=\'student\'', [tenantId]),
-      query('SELECT COALESCE(ROUND(AVG(mastery)::numeric,2),0) AS average FROM progress WHERE tenant_id=$1', [tenantId]),
-      query('SELECT COUNT(DISTINCT student_id)::int AS total FROM progress WHERE tenant_id=$1 AND mastery < 60', [tenantId]),
-      query('SELECT l.subject,ROUND(AVG(p.mastery)::numeric,1) AS mastery,COUNT(*)::int AS records FROM progress p JOIN lessons l ON l.id=p.lesson_id WHERE p.tenant_id=$1 GROUP BY l.subject ORDER BY mastery DESC LIMIT 6', [tenantId]),
-    ]);
-    res.json({ lessons: lessons.rows[0], students: students.rows[0], mastery: mastery.rows[0], at_risk_students: atRisk.rows[0], subjects: subjects.rows });
-  } catch (error) { next(error); }
+  try { const tenantId = req.user.tenant_id; const [lessons, students, mastery, atRisk, subjects] = await Promise.all([query('SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE status=\'published\')::int AS published, COUNT(*) FILTER (WHERE status=\'review\')::int AS review FROM lessons WHERE tenant_id=$1', [tenantId]), query('SELECT COUNT(*)::int AS total FROM users WHERE tenant_id=$1 AND role=\'student\'', [tenantId]), query('SELECT COALESCE(ROUND(AVG(mastery)::numeric,2),0) AS average FROM progress WHERE tenant_id=$1', [tenantId]), query('SELECT COUNT(DISTINCT student_id)::int AS total FROM progress WHERE tenant_id=$1 AND mastery < 60', [tenantId]), query('SELECT l.subject,ROUND(AVG(p.mastery)::numeric,1) AS mastery,COUNT(*)::int AS records FROM progress p JOIN lessons l ON l.id=p.lesson_id WHERE p.tenant_id=$1 GROUP BY l.subject ORDER BY mastery DESC LIMIT 6', [tenantId])]); res.json({ lessons: lessons.rows[0], students: students.rows[0], mastery: mastery.rows[0], at_risk_students: atRisk.rows[0], subjects: subjects.rows }); }
+  catch (error) { next(error); }
 });
 
 app.get('/api/analytics/student', requireRole('student'), async (req, res, next) => {
-  try {
-    const [summary, recent] = await Promise.all([
-      query('SELECT COUNT(*)::int AS lessons_attempted,COALESCE(ROUND(AVG(mastery)::numeric,1),0) AS average_mastery,COALESCE(MAX(last_score),0) AS best_score,COALESCE(SUM(attempts),0)::int AS attempts FROM progress WHERE tenant_id=$1 AND student_id=$2', [req.user.tenant_id, req.user.id]),
-      query('SELECT l.title,l.subject,p.mastery,p.last_score,p.attempts,p.updated_at FROM progress p JOIN lessons l ON l.id=p.lesson_id WHERE p.tenant_id=$1 AND p.student_id=$2 ORDER BY p.updated_at DESC LIMIT 8', [req.user.tenant_id, req.user.id]),
-    ]);
-    res.json({ summary: summary.rows[0], recent: recent.rows });
-  } catch (error) { next(error); }
+  try { const [summary, recent] = await Promise.all([query('SELECT COUNT(*)::int AS lessons_attempted,COALESCE(ROUND(AVG(mastery)::numeric,1),0) AS average_mastery,COALESCE(MAX(last_score),0) AS best_score,COALESCE(SUM(attempts),0)::int AS attempts FROM progress WHERE tenant_id=$1 AND student_id=$2', [req.user.tenant_id, req.user.id]), query('SELECT l.title,l.subject,p.mastery,p.last_score,p.attempts,p.updated_at FROM progress p JOIN lessons l ON l.id=p.lesson_id WHERE p.tenant_id=$1 AND p.student_id=$2 ORDER BY p.updated_at DESC LIMIT 8', [req.user.tenant_id, req.user.id])]); res.json({ summary: summary.rows[0], recent: recent.rows }); }
+  catch (error) { next(error); }
 });
 
 app.post('/api/webhooks/stripe', async (req, res, next) => {
-  try {
-    const secret = process.env.STRIPE_WEBHOOK_SECRET;
-    if (!secret) return res.status(503).json({ error: 'Stripe webhook is not configured.' });
-    const signature = req.headers['stripe-signature'];
-    if (typeof signature !== 'string') return res.status(400).json({ error: 'Missing Stripe signature.' });
-    const timestamp = signature.match(/(?:^|,)t=(\d+)/)?.[1];
-    const supplied = signature.match(/(?:^|,)v1=([a-f0-9]+)/)?.[1];
-    if (!timestamp || !supplied || Math.abs(Date.now() / 1000 - Number(timestamp)) > 300) return res.status(400).json({ error: 'Invalid webhook signature.' });
-    const expected = crypto.createHmac('sha256', secret).update(`${timestamp}.${req.body.toString('utf8')}`).digest('hex');
-    const a = Buffer.from(expected, 'hex'); const b = Buffer.from(supplied, 'hex');
-    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return res.status(400).json({ error: 'Invalid webhook signature.' });
-    const event = JSON.parse(req.body.toString('utf8'));
-    if (!event.id) return res.status(400).json({ error: 'Invalid webhook event.' });
-    await query('INSERT INTO webhook_events(id,provider) VALUES($1,$2) ON CONFLICT DO NOTHING', [event.id, 'stripe']);
-    res.json({ received: true });
-  } catch (error) { next(error); }
+  try { const secret = process.env.STRIPE_WEBHOOK_SECRET; if (!secret) return res.status(503).json({ error: 'Stripe webhook is not configured.' }); const signature = req.headers['stripe-signature']; if (typeof signature !== 'string') return res.status(400).json({ error: 'Missing Stripe signature.' }); const timestamp = signature.match(/(?:^|,)t=(\d+)/)?.[1]; const supplied = signature.match(/(?:^|,)v1=([a-f0-9]+)/)?.[1]; if (!timestamp || !supplied || Math.abs(Date.now() / 1000 - Number(timestamp)) > 300) return res.status(400).json({ error: 'Invalid webhook signature.' }); const expected = crypto.createHmac('sha256', secret).update(`${timestamp}.${req.body.toString('utf8')}`).digest('hex'); const a = Buffer.from(expected, 'hex'); const b = Buffer.from(supplied, 'hex'); if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return res.status(400).json({ error: 'Invalid webhook signature.' }); const event = JSON.parse(req.body.toString('utf8')); if (!event.id) return res.status(400).json({ error: 'Invalid webhook event.' }); await query('INSERT INTO webhook_events(id,provider) VALUES($1,$2) ON CONFLICT DO NOTHING', [event.id, 'stripe']); res.json({ received: true }); }
+  catch (error) { next(error); }
 });
 
 app.use((error, _req, res, _next) => {
