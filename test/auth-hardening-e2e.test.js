@@ -25,8 +25,8 @@ function totp(secret) {
   const digest = crypto.createHmac('sha1', base32Decode(secret)).update(input).digest(); const offset = digest[digest.length - 1] & 15;
   return String((digest.readUInt32BE(offset) & 0x7fffffff) % 1000000).padStart(6, '0');
 }
-async function jsonRequest(base, path, body, cookie) {
-  const response = await fetch(`${base}${path}`, { method: 'POST', headers: { 'content-type': 'application/json', ...(cookie ? { cookie } : {}) }, body: JSON.stringify(body) });
+async function jsonRequest(base, path, body, cookie, method = 'POST') {
+  const response = await fetch(`${base}${path}`, { method, headers: { ...(method !== 'GET' ? { 'content-type': 'application/json' } : {}), ...(cookie ? { cookie } : {}) }, ...(method !== 'GET' ? { body: JSON.stringify(body) } : {}) });
   const text = await response.text();
   return { response, body: text ? JSON.parse(text) : null };
 }
@@ -82,7 +82,8 @@ test('authentication hardening enforces verification, one-time reset, and two-st
     assert.equal(reset.response.status, 200); assert.equal(reset.body.reset, true);
     const reused = await jsonRequest(base, '/api/auth/password-reset/confirm', { token: resetToken, password: 'another-password-123' });
     assert.equal(reused.response.status, 400);
-    assert.equal((await jsonRequest(base, '/api/auth/me', {}, mfaCookie)).response.status, 401);
+    const me = await jsonRequest(base, '/api/auth/me', {}, mfaCookie, 'GET');
+    assert.equal(me.response.status, 401);
 
     const row = await query('SELECT tenant_id FROM users WHERE email=$1 LIMIT 1', [email]); tenantId = row.rows[0]?.tenant_id;
   } finally {
