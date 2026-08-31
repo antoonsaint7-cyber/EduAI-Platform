@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
   role TEXT NOT NULL CHECK (role IN ('teacher', 'student')),
   name TEXT NOT NULL CHECK (char_length(name) BETWEEN 1 AND 160),
   email_verified_at TIMESTAMPTZ,
+  mfa_enabled BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (tenant_id, email)
 );
