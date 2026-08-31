@@ -37,12 +37,17 @@ async function malwareScan(filePath, scanner = process.env.CLAMAV_SOCKET || proc
     }
     return { clean: process.env.NODE_ENV !== 'production', skipped: true };
   }
+
   if (typeof scanner !== 'function') {
     throw new Error('Configured malware scanner adapter is not callable. Refusing to trust configuration alone.');
   }
+
   const result = await scanner(filePath);
-  if (!result || result.clean !== true) return { clean: false, scanner: 'configured' };
-  return { clean: true, scanner: 'configured' };v1
+  if (!result || result.clean !== true) {
+    return { clean: false, scanner: 'configured' };
+  }
+
+  return { clean: true, scanner: 'configured' };
 }
 
 async function processUploadedDocument({ tenantId, documentId, filename, mimeType, size, localPath, objectKey, extract }) {

@@ -72,6 +72,20 @@ jobs:
             git push origin "HEAD:${GITHUB_REF_NAME}"
           fi
 
+      - name: Synchronize lockfile for pull requests
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch origin "${GITHUB_HEAD_REF}"
+          git checkout -B "${GITHUB_HEAD_REF}" "origin/${GITHUB_HEAD_REF}"
+          npm install --package-lock-only --ignore-scripts
+          if ! git diff --quiet -- package-lock.json; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add package-lock.json
+            git commit -m "chore(ci): synchronize npm lockfile"
+            git push origin "HEAD:${GITHUB_HEAD_REF}"
+          fi
+
       - name: Require committed lockfile
         run: |
           test -f package-lock.json || {
