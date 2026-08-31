@@ -11,7 +11,9 @@ function buildDocumentJobId({ tenantId, documentId, checksum }) {
   if (!tenant || !document || !digest) {
     throw new Error('tenantId, documentId and checksum are required for RAG ingestion.');
   }
-  return `rag:${crypto.createHash('sha256').update(`${tenant}:${document}:${digest}`).digest('hex')}`;
+  // BullMQ job IDs cannot contain ':'. Keep the deterministic hash while using
+  // a BullMQ-compatible prefix separator.
+  return `rag-${crypto.createHash('sha256').update(`${tenant}:${document}:${digest}`).digest('hex')}`;
 }
 
 async function ingestDocument({
