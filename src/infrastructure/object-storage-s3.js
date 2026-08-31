@@ -1,5 +1,7 @@
 'use strict';
 
+const fs = require('node:fs/promises');
+
 /**
  * S3-compatible adapter boundary.
  * The concrete SDK/client is injected so the core does not depend on a cloud vendor.
@@ -15,10 +17,11 @@ function createS3ObjectStorage({ client, bucket }) {
   return {
     async putPrivateObject({ localPath, objectKey, contentType, metadata = {} }) {
       if (!localPath || !objectKey) throw new Error('localPath and objectKey are required.');
+      const body = await fs.readFile(localPath);
       const result = await client.putObject({
         Bucket: bucket,
         Key: objectKey,
-        Body: localPath,
+        Body: body,
         ContentType: contentType,
         Metadata: Object.fromEntries(Object.entries(metadata).map(([key, value]) => [key, String(value)])),
         ACL: 'private',
