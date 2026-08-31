@@ -7,9 +7,9 @@
   "scripts": {
     "start": "node src/launcher.js",
     "worker": "node src/infrastructure/rag-worker.js",
-    "test": "node --test test/*.test.js && node --check server.js && node --check src/launcher.js && node --check src/ai-content.js && node --check src/stage2-learning.js && node --check src/adaptive-engine.js && node --check src/hybrid-retrieval.js && node --check src/exam-engine.js && node --check src/exam-blueprint.js && node --check src/education.js && node --check src/infrastructure/sse.js && node --check src/infrastructure/cache.js && node --check src/infrastructure/rate-limit.js && node --check src/infrastructure/queues.js && node --check src/infrastructure/rag-worker.js && node --check public/app.js && node --check public/education.js",
+    "test": "node --test test/*.test.js && node --check server.js && node --check src/launcher.js && node --check src/ai-content.js && node --check src/stage2-learning.js && node --check src/adaptive-engine.js && node --check src/hybrid-retrieval.js && node --check src/exam-engine.js && node --check src/exam-blueprint.js && node --check src/education.js && node --check src/infrastructure/sse.js && node --check src/infrastructure/cache.js && node --check src/infrastructure/rate-limit.js && node --check src/infrastructure/queues.js && node --check src/infrastructure/rag-worker.js && node --check src/infrastructure/real-extractors.js && node --check public/app.js && node --check public/education.js",
     "test:unit": "node --test test/*.test.js",
-    "test:syntax": "node --check server.js && node --check src/launcher.js && node --check src/ai-content.js && node --check src/stage2-learning.js && node --check src/adaptive-engine.js && node --check src/hybrid-retrieval.js && node --check src/exam-engine.js && node --check src/exam-blueprint.js && node --check src/education.js && node --check src/infrastructure/sse.js && node --check src/infrastructure/cache.js && node --check src/infrastructure/rate-limit.js && node --check src/infrastructure/queues.js && node --check src/infrastructure/rag-worker.js && node --check public/app.js && node --check public/education.js",
+    "test:syntax": "node --check server.js && node --check src/launcher.js && node --check src/ai-content.js && node --check src/stage2-learning.js && node --check src/adaptive-engine.js && node --check src/hybrid-retrieval.js && node --check src/exam-engine.js && node --check src/exam-blueprint.js && node --check src/education.js && node --check src/infrastructure/sse.js && node --check src/infrastructure/cache.js && node --check src/infrastructure/rate-limit.js && node --check src/infrastructure/queues.js && node --check src/infrastructure/rag-worker.js && node --check src/infrastructure/real-extractors.js && node --check src/infrastructure/rag-worker.js && node --check public/app.js && node --check public/education.js",
     "test:e2e": "node test/e2e-smoke.test.js",
     "db:migrate": "node scripts/migrate.js"
   },
@@ -19,6 +19,9 @@
     "express": "^5.1.0",
     "ioredis": "^5.7.0",
     "openai": "^5.12.2",
-    "pg": "^8.16.3"
+    "pg": "^8.16.3",
+    "mammoth": "^1.10.0",
+    "pdf-parse": "^1.1.1",
+    "pptx-text-extractor": "^1.1.0"
   }
 }
