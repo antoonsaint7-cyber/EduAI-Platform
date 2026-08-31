@@ -3,9 +3,8 @@
 const fs = require('node:fs/promises');
 
 /**
- * Production adapter boundary. Optional parser packages are loaded lazily so
- * the core application can still boot when a deployment has not enabled a
- * particular document format.
+ * Production adapters. Optional parser packages are loaded lazily so the core
+ * application can still boot when a deployment has not enabled a format.
  */
 async function extractPdf(filePath) {
   let pdfParse;
@@ -27,9 +26,9 @@ async function extractDocx(filePath) {
 }
 
 async function extractPptx(filePath) {
-  let pptxText;
-  try { pptxText = require('pptx-text-extractor'); } catch { throw new Error('PPTX extraction requires the pptx-text-extractor adapter dependency.'); }
-  const text = String(await pptxText(filePath) || '').trim();
+  let pptxTextParser;
+  try { pptxTextParser = require('pptx-text-parser'); } catch { throw new Error('PPTX extraction requires the pptx-text-parser adapter dependency.'); }
+  const text = String(await pptxTextParser(filePath, 'text') || '').trim();
   if (!text) throw new Error('PPTX contains no extractable text.');
   return { text, pages: [], metadata: {} };
 }
