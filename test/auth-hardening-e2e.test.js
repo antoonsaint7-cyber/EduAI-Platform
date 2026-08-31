@@ -52,6 +52,7 @@ test('authentication hardening enforces verification, one-time reset, and two-st
 
     const setup = await jsonRequest(base, '/api/auth/mfa/setup', {}, cookie);
     assert.equal(setup.response.status, 200); assert.equal(setup.body.setup_required, true); assert.equal(setup.body.recovery_codes.length, 10); assert.ok(setup.body.secret);
+    const recoveryCode = setup.body.recovery_codes[0];
     const confirm = await jsonRequest(base, '/api/auth/mfa/confirm', { code: totp(setup.body.secret) }, cookie);
     assert.equal(confirm.response.status, 200); assert.equal(confirm.body.enabled, true);
 
@@ -65,6 +66,15 @@ test('authentication hardening enforces verification, one-time reset, and two-st
 
     const replay = await jsonRequest(base, '/api/auth/mfa/verify-login', { challengeToken: challenge, code: totp(setup.body.secret) });
     assert.equal(replay.response.status, 401);
+
+    await jsonRequest(base, '/api/auth/logout', {}, mfaCookie);
+    const recoveryLogin = await jsonRequest(base, '/api/auth/login', { email, password });
+    const recoverySession = await jsonRequest(base, '/api/auth/mfa/verify-login', { challengeToken: recoveryLogin.body.challenge_token, code: recoveryCode });
+    assert.equal(recoverySession.response.status, 200); assert.ok(sessionCookie(recoverySession.response));
+    await jsonRequest(base, '/api/auth/logout', {}, sessionCookie(recoverySession.response));
+    const recoveryReplayLogin = await jsonRequest(base, '/api/auth/login', { email, password });
+    const recoveryReplay = await jsonRequest(base, '/api/auth/mfa/verify-login', { challengeToken: recoveryReplayLogin.body.challenge_token, code: recoveryCode });
+    assert.equal(recoveryReplay.response.status, 401);
 
     const resetRequest = await jsonRequest(base, '/api/auth/password-reset/request', { email });
     assert.equal(resetRequest.response.status, 200); const resetToken = resetRequest.response.headers.get('x-eduai-reset-token'); assert.ok(resetToken);
