@@ -1,8 +1,6 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
-<head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0f172a"><title>EduAI Platform | Dashboard</title><link rel="stylesheet" href="/dashboard.css"><link rel="stylesheet" href="/adaptive-learning.css">
-</head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0f172a"><title>EduAI Platform | Dashboard</title><link rel="stylesheet" href="/dashboard.css"><link rel="stylesheet" href="/adaptive-learning.css"></head>
 <body>
   <main class="dashboard-shell">
     <header class="topbar"><div><span class="eyebrow">EDUAI PLATFORM</span><h1 data-i18n="dashboardTitle">لوحة التحكم التعليمية</h1><p id="identity">جارٍ تحميل الحساب...</p></div><div class="top-actions"><label class="language-picker">🌐 <select id="language" aria-label="Language"><option value="ar">العربية</option><option value="en">English</option><option value="fr">Français</option><option value="es">Español</option></select></label><a class="ghost" href="/" data-i18n="tutor">المساعد الذكي</a><button id="logout" class="ghost" data-i18n="logout">تسجيل الخروج</button></div></header>
@@ -23,7 +21,7 @@
       </section>
     </div>
   </main>
-  <script src="/dashboard-v2.js"></script><script src="/i18n-dashboard.js"></script><script src="/adaptive-learning.js"></script><script src="/tutor-context.js"></script><script src="/course-manager.js"></script><script src="/assessment-center.js"></script>
+  <script src="/dashboard-v2.js"></script><script src="/i18n-dashboard.js"></script><script src="/adaptive-learning.js"></script><script src="/tutor-context.js"></script><script src="/course-manager.js"></script><script src="/assessment-center.js"></script><script src="/commercial-flow.js"></script>
   <script>document.addEventListener('DOMContentLoaded',()=>{const root=document.getElementById('adaptiveLearning');if(root&&window.EduAIAssessmentCenter)window.EduAIAssessmentCenter.loadRecommendations(root).catch(e=>{root.innerHTML='<div class="adaptive-empty">تعذر تحميل التوصيات حاليًا.</div>';console.error(e);});});</script>
 </body>
 </html>
