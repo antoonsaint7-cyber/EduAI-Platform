@@ -5,9 +5,11 @@ const { getCurrentUser } = require('./auth');
 const { closeRedis, getRedis } = require('./infrastructure/redis');
 const OpenAI = require('openai');
 const { registerPlatformV2 } = require('./platform-v2');
+const { registerLearningApi } = require('./learning-api');
 
 const client = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
 registerPlatformV2(app, { query, getCurrentUser, client });
+registerLearningApi(app, { query, getCurrentUser, client });
 
 app.get('/ready', async (_req, res) => {
   const checks = { database: false, redis: false };
