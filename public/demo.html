@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>EduAI Platform | Free Demo</title>
+  <style>
+    :root{font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;color:#172033;background:#f6f8fc}*{box-sizing:border-box}body{margin:0}.wrap{max-width:1120px;margin:auto;padding:28px}.hero{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;margin-bottom:22px}.badge{display:inline-block;padding:7px 11px;border-radius:999px;background:#e7f8ee;color:#18794e;font-size:13px;font-weight:700}.hero h1{font-size:38px;margin:12px 0 8px}.muted{color:#687386}.grid{display:grid;grid-template-columns:1.35fr .65fr;gap:18px}.card{background:white;border:1px solid #e4e8f0;border-radius:18px;padding:20px;box-shadow:0 8px 30px rgba(30,45,75,.06)}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.stat{padding:15px;border-radius:14px;background:#f7f9fc}.stat b{display:block;font-size:27px;margin-top:5px}.lesson{border:1px solid #e6eaf1;border-radius:14px;padding:15px;margin-top:11px}.lesson h3{margin:0 0 5px}.bar{height:8px;background:#e9edf3;border-radius:8px;overflow:hidden;margin-top:9px}.bar span{display:block;height:100%;background:#4b6bfb}.chat{display:flex;gap:9px;margin-top:12px}.chat input{flex:1;border:1px solid #d9deea;border-radius:12px;padding:12px;font-size:15px}.chat button{border:0;border-radius:12px;padding:0 17px;background:#172033;color:#fff;font-weight:700;cursor:pointer}.answer{margin-top:12px;padding:14px;border-radius:12px;background:#f7f9fc;line-height:1.55}.answer small{display:block;margin-top:8px;color:#687386}.pill{display:inline-block;font-size:12px;font-weight:700;padding:5px 8px;border-radius:8px;background:#eef1ff;color:#4056c6}.cta{margin-top:18px;padding:17px;border-radius:14px;background:#172033;color:white}.cta b{font-size:18px}.cta p{color:#cbd3e2;margin-bottom:0}@media(max-width:800px){.grid{grid-template-columns:1fr}.hero{display:block}.stats{grid-template-columns:1fr 1fr}.hero h1{font-size:31px}}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="hero">
+      <div>
+        <span class="badge">● 100% free demo · no API key</span>
+        <h1>EduAI Platform</h1>
+        <p class="muted">AI-powered learning, assessment, mastery and adaptive recommendations in one commercial-ready LMS.</p>
+      </div>
+      <span class="pill">Demo Mode</span>
+    </section>
+
+    <section class="grid">
+      <div>
+        <div class="card">
+          <h2>Student Overview</h2>
+          <div class="stats">
+            <div class="stat"><span class="muted">Lessons</span><b>2 / 3</b></div>
+            <div class="stat"><span class="muted">Latest score</span><b>78%</b></div>
+            <div class="stat"><span class="muted">Next priority</span><b>62%</b></div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:18px">
+          <h2>Course: AI Learning Fundamentals</h2>
+          <p class="muted">Grade 6–7 · Mixed Subjects</p>
+          <div class="lesson"><h3>Understanding Fractions</h3><span class="pill">Mathematics · Grade 6</span><div class="bar"><span style="width:62%"></span></div><p class="muted">Mastery 62% · Recommended next</p></div>
+          <div class="lesson"><h3>Photosynthesis Basics</h3><span class="pill">Science · Grade 7</span><div class="bar"><span style="width:84%"></span></div><p class="muted">Mastery 84% · Strong</p></div>
+          <div class="lesson"><h3>Ancient Egypt</h3><span class="pill">History · Grade 7</span><div class="bar"><span style="width:71%"></span></div><p class="muted">Mastery 71% · Review recommended</p></div>
+        </div>
+      </div>
+
+      <aside>
+        <div class="card">
+          <h2>🧠 Demo Tutor</h2>
+          <p class="muted">This demo uses local deterministic answers. No OpenAI or other paid AI service is called.</p>
+          <div class="chat"><input id="q" placeholder="Ask about fractions..."/><button onclick="ask()">Ask</button></div>
+          <div id="answer" class="answer">Try: <b>What is a fraction?</b></div>
+        </div>
+        <div class="card" style="margin-top:18px">
+          <h3>Teacher Snapshot</h3>
+          <p>👩‍🏫 Demo Teacher</p><p>📚 1 published course</p><p>👨‍🎓 12 students</p><p>🎯 3 tracked mastery topics</p>
+        </div>
+        <div class="cta"><b>Built for commercial delivery</b><p>Demo mode is isolated from paid AI credentials. Buyers can switch to a real provider by configuring their own API key.</p></div>
+      </aside>
+    </section>
+  </main>
+  <script>
+    const answers=[
+      [/fraction|fractions|كسر|كسور/i,'A fraction represents part of a whole. The numerator is the top number and the denominator is the bottom number. Example: 2/4 has the same value as 1/2.','Source: Understanding Fractions'],
+      [/photo|photosynthesis|تمثيل ضوئي|البناء الضوئي/i,'Photosynthesis is how plants make food using light energy, carbon dioxide and water. Oxygen is released as a by-product.','Source: Photosynthesis Basics'],
+      [/egypt|nile|مصر|النيل|فرعون/i,'Ancient Egyptian civilization developed along the Nile. The river supported agriculture and helped cities, trade, writing and centralized government grow.','Source: Ancient Egypt']
+    ];
+    function ask(){const q=document.getElementById('q').value.trim();if(!q)return;const hit=answers.find(x=>x[0].test(q));const box=document.getElementById('answer');box.innerHTML=hit?`${hit[1]}<small>${hit[2]}</small>`:'Demo Tutor can answer questions about fractions, photosynthesis, or Ancient Egypt. No external AI call was made.';}
+    document.getElementById('q').addEventListener('keydown',e=>{if(e.key==='Enter')ask()});
+  </script>
+</body>
+</html>
