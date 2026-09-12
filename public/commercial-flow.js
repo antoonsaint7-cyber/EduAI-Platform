@@ -12,7 +12,7 @@
 
   async function attachLessonContext() {
     const container = document.getElementById('studentLessons');
-    if (!container) return;
+    if (!container || document.getElementById('student')?.hidden) return;
     try {
       const { lessons = [] } = await api('/api/lessons');
       const byKey = new Map(lessons.map(l => [`${l.title}|${l.subject}|${l.level}`, l]));
@@ -39,7 +39,7 @@
 
   async function refreshAdaptivePanel() {
     const root = document.getElementById('adaptiveLearning');
-    if (!root || document.getElementById('teacher')) return;
+    if (!root || document.getElementById('student')?.hidden) return;
     try {
       const [next, mastery] = await Promise.all([api('/api/learning/next'), api('/api/learning/mastery')]);
       const weak = (next.weak_topics || []).slice(0, 5);
@@ -77,7 +77,7 @@
 
   function addTeacherStudentAnalytics() {
     const teacher = document.getElementById('teacher');
-    if (!teacher || document.getElementById('teacherStudentLookup')) return;
+    if (!teacher || teacher.hidden || document.getElementById('teacherStudentLookup')) return;
     const panel = document.createElement('article');
     panel.className = 'panel';
     panel.id = 'teacherStudentLookup';
