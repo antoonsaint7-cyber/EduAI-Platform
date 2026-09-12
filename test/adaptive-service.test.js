@@ -101,6 +101,6 @@ test('assessment result updates skill mastery and topic mastery from quiz eviden
   assert.equal(rows.get('algebra').attempts, 1);
   assert.equal(evidenceRows.length, 2);
   assert.equal(evidenceRows.find(x => x.topic === 'fractions').score, 0);
-  assert.equal(topicRows.get('student-1:fractions').mastery, 0);
-  assert.equal(topicRows.get('student-1:algebra').mastery, 100);
+  assert.equal(topicRows.get('Math:fractions').mastery, 0);
+  assert.equal(topicRows.get('Math:algebra').mastery, 100);
 });
