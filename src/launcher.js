@@ -6,7 +6,6 @@ const { closeRedis, getRedis } = require('./infrastructure/redis');
 const OpenAI = require('openai');
 const { registerPlatformV2 } = require('./platform-v2');
 const { registerLearningApi } = require('./learning-api');
-const { registerDemoMode } = require('./demo-mode');
 const { registerRagTutor } = require('./rag-tutor');
 const { registerRagScope } = require('./rag-scope');
 
@@ -15,7 +14,6 @@ registerPlatformV2(app, { query, getCurrentUser, client });
 registerLearningApi(app, { query, getCurrentUser, client });
 registerRagTutor(app, { query, getCurrentUser, client });
 registerRagScope(app, { query, getCurrentUser });
-registerDemoMode(app);
 
 app.get('/ready', async (_req, res) => {
   const checks = { database: false, redis: false };
