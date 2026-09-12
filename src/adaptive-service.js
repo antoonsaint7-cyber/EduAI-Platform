@@ -31,6 +31,7 @@ function gradeAssessmentQuestions(questions = [], answers = []) {
     const selected = normalizeAnswer(safeAnswers[index]);
     const correctAnswer = normalizeAnswer(question?.answer_index);
     return {
+      questionIndex: index,
       skill: normalizeQuestionSkill(question),
       difficulty: normalizeDifficulty(question?.difficulty),
       selected,
@@ -47,6 +48,8 @@ function aggregateSkillEvidence(graded = []) {
     bucket.score += item.correct ? 100 : 0;
     bucket.difficulty += item.difficulty;
     bucket.attempts += 1;
+    bucket.evidenceQuestionIndexes = bucket.evidenceQuestionIndexes || [];
+    bucket.evidenceQuestionIndexes.push(item.questionIndex);
     buckets.set(item.skill, bucket);
   }
   return [...buckets.values()].map(bucket => ({
@@ -59,16 +62,36 @@ function aggregateSkillEvidence(graded = []) {
 async function applyAssessmentResult(db, {
   tenantId,
   studentId,
+  assessmentId = null,
   lessonId = null,
+  subject = 'General',
   questions = [],
   answers = [],
 }) {
   if (!db || typeof db.query !== 'function') throw new TypeError('A database client with query() is required');
   if (!tenantId || !studentId) throw new TypeError('tenantId and studentId are required');
 
-  const graded = gradeAssessmentQuestions(questions, answers);
+  const safeQuestions = Array.isArray(questions) ? questions : [];
+  const safeAnswers = Array.isArray(answers) ? answers : [];
+  const graded = gradeAssessmentQuestions(safeQuestions, safeAnswers);
   const evidence = aggregateSkillEvidence(graded);
   const updated = [];
+  const topicMastery = [];
+  let attempt = null;
+
+  if (assessmentId) {
+    const correctAnswers = graded.filter(item => item.correct).length;
+    const totalQuestions = safeQuestions.length;
+    const score = totalQuestions ? Math.round((correctAnswers / totalQuestions) * 10000) / 100 : 0;
+    const attemptResult = await db.query(
+      `INSERT INTO assessment_attempts
+        (tenant_id,assessment_id,student_id,lesson_id,score,correct_answers,total_questions,answers)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb)
+       RETURNING id,assessment_id,student_id,lesson_id,score,correct_answers,total_questions,submitted_at`,
+      [tenantId, assessmentId, studentId, lessonId, score, correctAnswers, totalQuestions, JSON.stringify(safeAnswers.slice(0, safeQuestions.length))],
+    );
+    attempt = attemptResult.rows[0] || null;
+  }
 
   for (const item of evidence) {
     const existing = await db.query(
@@ -96,6 +119,28 @@ async function applyAssessmentResult(db, {
       [tenantId, studentId, item.skill, nextMastery, nextAttempts, item.score, item.difficulty, confidence, lessonId],
     );
     updated.push(result.rows[0]);
+
+    if (assessmentId) {
+      await db.query(
+        `INSERT INTO assessment_evidence
+          (tenant_id,student_id,assessment_id,lesson_id,subject,topic,score,attempts,difficulty)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        [tenantId, studentId, assessmentId, lessonId, String(subject || 'General').slice(0, 160), item.skill, item.score, item.attempts, item.difficulty],
+      );
+    }
+
+    const topicResult = await db.query(
+      `INSERT INTO topic_mastery
+        (tenant_id,student_id,subject,topic,mastery,evidence_count)
+       VALUES ($1,$2,$3,$4,$5,$6)
+       ON CONFLICT(student_id,subject,topic) DO UPDATE SET
+         mastery=ROUND((topic_mastery.mastery*0.7+EXCLUDED.mastery*0.3)::numeric,2),
+         evidence_count=topic_mastery.evidence_count+EXCLUDED.evidence_count,
+         updated_at=now()
+       RETURNING id,subject,topic,mastery,evidence_count,updated_at`,
+      [tenantId, studentId, String(subject || 'General').slice(0, 160), item.skill, item.score, item.attempts],
+    );
+    topicMastery.push(topicResult.rows[0]);
   }
 
   const profile = buildKnowledgeProfile(updated.map(row => ({
@@ -106,9 +151,11 @@ async function applyAssessmentResult(db, {
   })));
 
   return {
+    attempt,
     graded,
     evidence,
     updated,
+    topicMastery,
     profile,
     weakSkills: profile.filter(item => item.weak).map(item => item.skill),
     nextDifficulty: profile.length ? rankNextQuestions([], profile) : [],

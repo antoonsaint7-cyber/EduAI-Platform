@@ -28,6 +28,24 @@ function buildKnowledgeProfile(records = []) {
   return [...map.values()].map(x => ({ ...x, level: classify(x.mastery), weak: x.mastery < 70 }));
 }
 
+function aggregateQuizEvidence(questions = [], review = []) {
+  const byId = new Map((Array.isArray(review) ? review : []).map(r => [String(r.id), r]));
+  const byTopic = new Map();
+  for (const question of Array.isArray(questions) ? questions : []) {
+    const topic = String(question?.topic || question?.skill || '').trim();
+    if (!topic) continue;
+    const result = byId.get(String(question.id));
+    if (!result || !result.auto_gradable) continue;
+    const current = byTopic.get(topic) || { topic, correct: 0, total: 0, points: 0, earned_points: 0 };
+    current.total += 1;
+    current.correct += result.correct ? 1 : 0;
+    current.points += Number(result.points) || 0;
+    current.earned_points += Number(result.earned_points) || 0;
+    byTopic.set(topic, current);
+  }
+  return [...byTopic.values()].map(item => ({ ...item, score: item.points ? Math.round((item.earned_points / item.points) * 10000) / 100 : Math.round((item.correct / item.total) * 10000) / 100 }));
+}
+
 function targetDifficulty(mastery) {
   const m = clamp(mastery);
   if (m < 50) return 30;
@@ -64,4 +82,4 @@ function recommendNextStep(profile = [], lessons = [], max = 3) {
   });
 }
 
-module.exports = { clamp, masteryUpdate, classify, buildKnowledgeProfile, targetDifficulty, rankNextQuestions, buildDynamicPath, recommendNextStep };
+module.exports = { clamp, masteryUpdate, classify, buildKnowledgeProfile, aggregateQuizEvidence, targetDifficulty, rankNextQuestions, buildDynamicPath, recommendNextStep };

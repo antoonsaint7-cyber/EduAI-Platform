@@ -6,6 +6,7 @@ const {
   masteryUpdate,
   classify,
   buildKnowledgeProfile,
+  aggregateQuizEvidence,
   targetDifficulty,
   rankNextQuestions,
   buildDynamicPath,
@@ -33,6 +34,33 @@ test('knowledge profile aggregates attempts by skill', () => {
   const fractions = profile.find(x => x.skill === 'fractions');
   assert.equal(fractions.attempts, 2);
   assert.equal(fractions.weak, true);
+});
+
+test('quiz grading evidence is aggregated by topic', () => {
+  const evidence = aggregateQuizEvidence(
+    [
+      { id: 'q1', topic: 'fractions', points: 2 },
+      { id: 'q2', topic: 'fractions', points: 2 },
+      { id: 'q3', topic: 'algebra', points: 4 },
+    ],
+    [
+      { id: 'q1', correct: true, auto_gradable: true, points: 2, earned_points: 2 },
+      { id: 'q2', correct: false, auto_gradable: true, points: 2, earned_points: 0 },
+      { id: 'q3', correct: true, auto_gradable: true, points: 4, earned_points: 4 },
+    ],
+  );
+  assert.deepEqual(evidence, [
+    { topic: 'fractions', correct: 1, total: 2, points: 4, earned_points: 2, score: 50 },
+    { topic: 'algebra', correct: 1, total: 1, points: 4, earned_points: 4, score: 100 },
+  ]);
+});
+
+test('non-auto-gradable questions do not become mastery evidence', () => {
+  const evidence = aggregateQuizEvidence(
+    [{ id: 'q1', topic: 'essay', points: 5 }],
+    [{ id: 'q1', correct: false, auto_gradable: false, points: 5, earned_points: 0 }],
+  );
+  assert.deepEqual(evidence, []);
 });
 
 test('target difficulty increases with mastery', () => {

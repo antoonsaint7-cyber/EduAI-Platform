@@ -17,6 +17,19 @@ jobs:
     runs-on: ubuntu-latest
 
     services:
+      postgres:
+        image: postgres:16-alpine
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: eduai
+          POSTGRES_PASSWORD: eduai
+          POSTGRES_DB: eduai_test
+        options: >-
+          --health-cmd="pg_isready -U eduai -d eduai_test"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
       redis:
         image: redis:7-alpine
         ports:
@@ -28,12 +41,20 @@ jobs:
           --health-retries=20
 
     env:
+      DATABASE_URL: postgresql://eduai:eduai@127.0.0.1:5432/eduai_test
       REDIS_URL: redis://127.0.0.1:6379
       NODE_ENV: test
+      AUTH_DEBUG_TOKENS: 'true'
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
 
       - name: Verify Node and npm
         run: |
@@ -41,7 +62,10 @@ jobs:
           npm --version
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
+
+      - name: Apply database migrations
+        run: npm run db:migrate
 
       - name: Syntax and unit tests
         run: npm test
