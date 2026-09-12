@@ -94,9 +94,17 @@
     };
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(() => { attachLessonContext(); refreshAdaptivePanel(); observeQuizResult(); addTeacherStudentAnalytics(); }, 250);
+  function initialize() {
+    attachLessonContext();
+    refreshAdaptivePanel();
+    observeQuizResult();
+    addTeacherStudentAnalytics();
     const lessons = document.getElementById('studentLessons');
     if (lessons) new MutationObserver(() => attachLessonContext()).observe(lessons, { childList: true, subtree: true });
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(initialize, 1000);
+    setTimeout(initialize, 2500);
   });
 })();
