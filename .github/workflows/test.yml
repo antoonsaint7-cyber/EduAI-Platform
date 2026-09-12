@@ -45,6 +45,7 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/eduai
       REDIS_URL: redis://localhost:6379
       NODE_ENV: test
+      AUTH_DEBUG_TOKENS: 'true'
       PORT: 3000
       RUN_RAG_WORKER: 'false'
 
