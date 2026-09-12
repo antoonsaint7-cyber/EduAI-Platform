@@ -36,6 +36,89 @@ function registerPlatformV2(app, { query, getCurrentUser, client }) {
     }catch(e){next(e);}
   });
 
+  app.get('/api/courses', role('teacher','student'), async (req,res,next) => {
+    try {
+      const result = req.user.role === 'teacher'
+        ? await query(`SELECT c.id,c.title,c.description,c.subject,c.level,c.status,c.created_at,c.updated_at,COUNT(DISTINCT cm.student_id)::int AS student_count,COUNT(DISTINCT l.id)::int AS lesson_count
+            FROM courses c LEFT JOIN course_memberships cm ON cm.course_id=c.id AND cm.status IN ('active','completed') LEFT JOIN lessons l ON l.course_id=c.id AND l.status <> 'archived'
+            WHERE c.tenant_id=$1 AND c.created_by=$2 GROUP BY c.id ORDER BY c.updated_at DESC`, [req.user.tenant_id, req.user.id])
+        : await query(`SELECT c.id,c.title,c.description,c.subject,c.level,c.status,c.created_at,c.updated_at,cm.status AS membership_status,
+            COUNT(DISTINCT l.id)::int AS lesson_count,COUNT(DISTINCT p.lesson_id)::int AS completed_lessons
+            FROM courses c JOIN course_memberships cm ON cm.course_id=c.id AND cm.student_id=$2 AND cm.status IN ('active','completed')
+            LEFT JOIN lessons l ON l.course_id=c.id AND l.status='published'
+            LEFT JOIN progress p ON p.lesson_id=l.id AND p.student_id=$2
+            WHERE c.tenant_id=$1 AND c.status='published' GROUP BY c.id,cm.status ORDER BY c.updated_at DESC`, [req.user.tenant_id, req.user.id]);
+      res.json({ courses: result.rows });
+    } catch(e){next(e);}
+  });
+
+  app.post('/api/courses', role('teacher'), async (req,res,next) => {
+    try {
+      const title=String(req.body?.title||'').trim(), description=String(req.body?.description||'').trim(), subject=String(req.body?.subject||'').trim(), level=String(req.body?.level||'').trim();
+      if(!title||title.length>200||description.length>4000||subject.length>160||level.length>160) return res.status(400).json({error:'بيانات الكورس غير صحيحة.'});
+      const result=await query(`INSERT INTO courses(tenant_id,title,description,subject,level,created_by) VALUES($1,$2,$3,$4,$5,$6) RETURNING *`,[req.user.tenant_id,title,description,subject,level,req.user.id]);
+      await audit(req,'course.created','courses',result.rows[0].id,{title});
+      res.status(201).json({course:result.rows[0]});
+    }catch(e){next(e);}
+  });
+
+  app.post('/api/courses/:id/publish', role('teacher'), async (req,res,next) => {
+    try {
+      const result=await query(`UPDATE courses SET status='published' WHERE id=$1 AND tenant_id=$2 AND created_by=$3 AND status='draft' RETURNING *`,[req.params.id,req.user.tenant_id,req.user.id]);
+      if(!result.rows[0]) return res.status(404).json({error:'الكورس غير موجود أو غير قابل للنشر.'});
+      await audit(req,'course.published','courses',result.rows[0].id); res.json({course:result.rows[0]});
+    }catch(e){next(e);}
+  });
+
+  app.post('/api/courses/:id/archive', role('teacher'), async (req,res,next) => {
+    try {
+      const result=await query(`UPDATE courses SET status='archived' WHERE id=$1 AND tenant_id=$2 AND created_by=$3 AND status <> 'archived' RETURNING *`,[req.params.id,req.user.tenant_id,req.user.id]);
+      if(!result.rows[0]) return res.status(404).json({error:'الكورس غير موجود.'});
+      await audit(req,'course.archived','courses',result.rows[0].id); res.json({course:result.rows[0]});
+    }catch(e){next(e);}
+  });
+
+  app.get('/api/courses/:id/lessons', role('teacher','student'), async (req,res,next) => {
+    try {
+      const course=await query(`SELECT id,title,status,created_by FROM courses WHERE id=$1 AND tenant_id=$2`,[req.params.id,req.user.tenant_id]);
+      if(!course.rows[0]) return res.status(404).json({error:'الكورس غير موجود.'});
+      if(req.user.role==='student') {
+        const member=await query(`SELECT 1 FROM course_memberships WHERE course_id=$1 AND student_id=$2 AND status IN ('active','completed')`,[req.params.id,req.user.id]);
+        if(!member.rows[0] || course.rows[0].status!=='published') return res.status(403).json({error:'الكورس غير متاح لك.'});
+      } else if(course.rows[0].created_by!==req.user.id) return res.status(403).json({error:'ليس لديك صلاحية لهذا الكورس.'});
+      const result=await query(`SELECT id,title,subject,level,content,status,position,created_at,updated_at FROM lessons WHERE tenant_id=$1 AND course_id=$2 ${req.user.role==='student' ? "AND status='published'" : "AND status <> 'archived'"} ORDER BY position ASC,updated_at DESC`,[req.user.tenant_id,req.params.id]);
+      res.json({course:course.rows[0],lessons:result.rows});
+    }catch(e){next(e);}
+  });
+
+  app.post('/api/courses/:id/lessons', role('teacher'), async (req,res,next) => {
+    try {
+      const course=await query(`SELECT id FROM courses WHERE id=$1 AND tenant_id=$2 AND created_by=$3`,[req.params.id,req.user.tenant_id,req.user.id]);
+      if(!course.rows[0]) return res.status(404).json({error:'الكورس غير موجود.'});
+      const lessonId=String(req.body?.lessonId||''), position=Number(req.body?.position||0);
+      if(!/^[0-9a-f-]{36}$/i.test(lessonId)||!Number.isInteger(position)||position<0) return res.status(400).json({error:'الدرس وترتيبه مطلوبان.'});
+      const lesson=await query(`UPDATE lessons SET course_id=$1,position=$2 WHERE id=$3 AND tenant_id=$4 AND created_by=$5 RETURNING *`,[req.params.id,position,lessonId,req.user.tenant_id,req.user.id]);
+      if(!lesson.rows[0]) return res.status(404).json({error:'الدرس غير موجود.'});
+      await audit(req,'course.lesson_attached','lessons',lesson.rows[0].id,{courseId:req.params.id,position}); res.json({lesson:lesson.rows[0]});
+    }catch(e){next(e);}
+  });
+
+  app.post('/api/courses/:id/enroll', role('student'), async (req,res,next) => {
+    try {
+      const course=await query(`SELECT id FROM courses WHERE id=$1 AND tenant_id=$2 AND status='published'`,[req.params.id,req.user.tenant_id]);
+      if(!course.rows[0]) return res.status(404).json({error:'الكورس غير منشور أو غير موجود.'});
+      const result=await query(`INSERT INTO course_memberships(tenant_id,course_id,student_id) VALUES($1,$2,$3) ON CONFLICT(course_id,student_id) DO UPDATE SET status='active' RETURNING *`,[req.user.tenant_id,req.params.id,req.user.id]);
+      await audit(req,'course.enrolled','courses',req.params.id); res.status(201).json({membership:result.rows[0]});
+    }catch(e){next(e);}
+  });
+
+  app.get('/api/rag/documents', role('teacher','admin'), async (req,res,next) => {
+    try {
+      const r=await query('SELECT id,name,mime_type,size_bytes,created_at FROM documents WHERE tenant_id=$1 ORDER BY created_at DESC LIMIT 100',[req.user.tenant_id]);
+      res.json({documents:r.rows});
+    }catch(e){next(e);}
+  });
+
   app.post('/api/rag/documents', role('teacher','admin'), async (req,res,next) => {
     try {
       const name=String(req.body?.name||'').trim(), mime=String(req.body?.mimeType||'text/plain'), text=String(req.body?.text||'').trim();
