@@ -11,7 +11,9 @@ test('demo mode exposes deterministic zero-cost learning data', async () => {
   registerDemoMode(app);
 
   assert.equal(DEMO_LESSONS.length, 3);
-  assert.equal(routes['GET /api/demo/status'], Function.prototype);
+  assert.equal(typeof routes['GET /api/demo/status'], 'function');
+  assert.equal(typeof routes['GET /api/demo/overview'], 'function');
+  assert.equal(typeof routes['POST /api/demo/chat'], 'function');
 
   const statusResponse = { json(value) { this.value = value; } };
   routes['GET /api/demo/status']({}, statusResponse);
