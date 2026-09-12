@@ -6,7 +6,6 @@ const http = require('node:http');
 const crypto = require('node:crypto');
 const { app } = require('../server');
 const { query, close: closeDb } = require('../src/db');
-const { hashPassword } = require('../src/auth');
 
 const runId = crypto.randomUUID().slice(0, 8);
 
@@ -62,6 +61,7 @@ test('real commercial journey: teacher → student → assessment → mastery �
   const { server, base } = await startServer();
   let teacher;
   let student;
+  let studentOriginalTenantId;
   let courseId;
   let lessonId;
   let assessmentId;
@@ -126,6 +126,7 @@ test('real commercial journey: teacher → student → assessment → mastery �
 
     // 3. Create a student account, move it into the teacher tenant for this isolated E2E fixture, then log in.
     student = await register(base, 'student', 'E2E Student');
+    studentOriginalTenantId = student.user.tenant_id;
     await query('UPDATE users SET tenant_id=$1 WHERE id=$2', [teacher.user.tenant_id, student.user.id]);
 
     const studentLogin = await request(base, '/api/auth/login', {
@@ -228,6 +229,7 @@ test('real commercial journey: teacher → student → assessment → mastery �
       await query('DELETE FROM mfa_credentials WHERE user_id=$1', [student.user.id]);
       await query('DELETE FROM users WHERE id=$1', [student.user.id]);
     }
+    if (studentOriginalTenantId) await query('DELETE FROM tenants WHERE id=$1', [studentOriginalTenantId]);
     if (teacher?.user?.id) {
       await query('DELETE FROM audit_logs WHERE actor_id=$1', [teacher.user.id]);
       await query('DELETE FROM sessions WHERE user_id=$1', [teacher.user.id]);
