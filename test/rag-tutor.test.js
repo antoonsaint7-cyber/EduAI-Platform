@@ -79,10 +79,10 @@ test('grounded tutor returns only tenant-scoped and lesson-scoped sources', asyn
 
 test('grounded tutor calls the AI client with source-grounded prompt', async () => {
   let request;
-  const client = { chat: { completions: { create: async value => { request = value; return { choices: [{ message: { content: 'A fraction is a part of a whole. [1]' } }] }; } } } };
+  const client = { chat: { completions: { create: async value => { request = value; return { choices: [{ message: { content: 'Fractions are parts of a whole. [1]' } }] }; } } } };
   const handler = setup({ user: { id: 'teacher-1', tenant_id: 'tenant-1', role: 'teacher' }, queryImpl: async sql => sql.includes('FROM lessons') ? { rows: [{ id: '12345678-1234-1234-1234-123456789012', title: 'Fractions', subject: 'Math', level: '5', content: 'Fractions are parts of a whole.', status: 'published', course_id: null, course_status: null }] } : { rows: [] }, client });
   const res = response();
-  await handler({ body: { message: 'What is a fraction?', lessonId: '12345678-1234-1234-1234-123456789012' } }, res);
+  await handler({ body: { message: 'What are fractions?', lessonId: '12345678-1234-1234-1234-123456789012' } }, res);
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.sources_used, 1);
   assert.match(request.messages[1].content, /Answer the educational question using only the supplied sources/);
