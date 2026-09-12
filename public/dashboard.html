@@ -23,6 +23,7 @@
       </section>
     </div>
   </main>
-  <script src="/dashboard-v2.js"></script><script src="/i18n-dashboard.js"></script><script src="/adaptive-learning.js"></script><script src="/tutor-context.js"></script><script src="/course-manager.js"></script>
+  <script src="/dashboard-v2.js"></script><script src="/i18n-dashboard.js"></script><script src="/adaptive-learning.js"></script><script src="/tutor-context.js"></script><script src="/course-manager.js"></script><script src="/assessment-center.js"></script>
+  <script>document.addEventListener('DOMContentLoaded',()=>{const root=document.getElementById('adaptiveLearning');if(root&&window.EduAIAssessmentCenter)window.EduAIAssessmentCenter.loadRecommendations(root).catch(e=>{root.innerHTML='<div class="adaptive-empty">تعذر تحميل التوصيات حاليًا.</div>';console.error(e);});});</script>
 </body>
 </html>
