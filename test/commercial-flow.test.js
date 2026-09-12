@@ -23,7 +23,8 @@ test('main dashboard wires the unified student and teacher flow', () => {
 test('commercial flow connects lessons, tutor context, recommendations, mastery and teacher analytics', () => {
   const script = read('public/commercial-flow.js');
   assert.match(script, /\/api\/lessons/);
-  assert.match(script, /data-lesson-id/);
+  assert.match(script, /card\.dataset\.lessonId/);
+  assert.match(script, /card\.dataset\.courseId/);
   assert.match(script, /eduai-tutor-context/);
   assert.match(script, /\/api\/learning\/next/);
   assert.match(script, /\/api\/learning\/mastery/);
