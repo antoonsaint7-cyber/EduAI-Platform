@@ -24,11 +24,12 @@ test('learning API registers next-learning, mastery, history and teacher student
 test('next-learning route rejects malformed course ids', async () => {
   const app = makeApp();
   registerLearningApi(app, { query: async () => ({ rows: [] }), getCurrentUser: async () => ({ id: 'student-1', tenant_id: 'tenant-1', role: 'student' }) });
-  const route = app.routes['GET /api/learning/next'][0];
+  const [authHandler, routeHandler] = app.routes['GET /api/learning/next'];
   let statusCode = 200;
   let body = null;
   const res = { status(code) { statusCode = code; return this; }, json(value) { body = value; } };
-  await route({ query: { courseId: 'not-a-uuid' } }, res, () => {});
+  const req = { query: { courseId: 'not-a-uuid' } };
+  await authHandler(req, res, () => routeHandler(req, res, () => {}));
   assert.equal(statusCode, 400);
   assert.equal(body.error, 'courseId غير صحيح.');
 });
