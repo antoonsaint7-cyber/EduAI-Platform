@@ -190,9 +190,9 @@ test('real commercial journey: teacher → student → assessment → mastery �
 
     const questions = {
       questions: [
-        { question: 'What is a fraction?', answer_index: 0, explanation: 'A fraction represents parts of a whole.' },
-        { question: 'What does the denominator describe?', answer_index: 1, explanation: 'It describes equal parts in the whole.' },
-        { question: 'What does the numerator count?', answer_index: 0, explanation: 'It counts selected parts.' },
+        { question: 'What is a fraction?', answer_index: 0, skill: 'Fractions', difficulty: 40, explanation: 'A fraction represents parts of a whole.' },
+        { question: 'What does the denominator describe?', answer_index: 1, skill: 'Fractions', difficulty: 40, explanation: 'It describes equal parts in the whole.' },
+        { question: 'What does the numerator count?', answer_index: 0, skill: 'Fractions', difficulty: 40, explanation: 'It counts selected parts.' },
       ],
     };
     const assessment = await query(
