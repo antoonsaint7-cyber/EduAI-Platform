@@ -2,20 +2,63 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const http = require('node:http');
 const crypto = require('node:crypto');
-const { app } = require('../server');
+const http = require('node:http');
+const { spawn } = require('node:child_process');
 const { query, close: closeDb } = require('../src/db');
 
 const runId = crypto.randomUUID().slice(0, 8);
 
-async function startServer() {
-  const server = http.createServer(app);
-  await new Promise((resolve, reject) => {
-    server.once('error', reject);
-    server.listen(0, '127.0.0.1', resolve);
+function findFreePort() {
+  return new Promise((resolve, reject) => {
+    const probe = http.createServer();
+    probe.once('error', reject);
+    probe.listen(0, '127.0.0.1', () => {
+      const { port } = probe.address();
+      probe.close(error => error ? reject(error) : resolve(port));
+    });
   });
-  return { server, base: `http://127.0.0.1:${server.address().port}` };
+}
+
+async function startServer() {
+  const port = await findFreePort();
+  const child = spawn(process.execPath, ['src/launcher.js'], {
+    cwd: process.cwd(),
+    env: { ...process.env, PORT: String(port), HOST: '127.0.0.1' },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  let output = '';
+  const collect = chunk => { output += chunk.toString(); };
+  child.stdout.on('data', collect);
+  child.stderr.on('data', collect);
+
+  const base = `http://127.0.0.1:${port}`;
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline) {
+    if (child.exitCode !== null) throw new Error(`production launcher exited with ${child.exitCode}: ${output}`);
+    try {
+      const response = await fetch(`${base}/health`);
+      if (response.status === 200) return { child, base };
+    } catch {}
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  child.kill('SIGTERM');
+  throw new Error(`production launcher did not become healthy: ${output}`);
+}
+
+async function stopServer(child) {
+  if (!child || child.exitCode !== null) return;
+  await new Promise(resolve => {
+    const timeout = setTimeout(() => {
+      child.kill('SIGKILL');
+      resolve();
+    }, 5_000);
+    child.once('exit', () => {
+      clearTimeout(timeout);
+      resolve();
+    });
+    child.kill('SIGTERM');
+  });
 }
 
 function cookieFrom(response) {
@@ -58,7 +101,7 @@ async function register(base, role, name) {
 }
 
 test('real commercial journey: teacher → student → assessment → mastery → recommendation → tutor', async () => {
-  const { server, base } = await startServer();
+  const { child, base } = await startServer();
   let teacher;
   let student;
   let studentOriginalTenantId;
@@ -226,7 +269,7 @@ test('real commercial journey: teacher → student → assessment → mastery �
       await query('DELETE FROM users WHERE id=$1', [teacher.user.id]);
       await query('DELETE FROM tenants WHERE id=$1', [teacher.user.tenant_id]);
     }
-    await new Promise(resolve => server.close(resolve));
+    await stopServer(child);
     await closeDb();
   }
 });
