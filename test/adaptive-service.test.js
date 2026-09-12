@@ -44,13 +44,27 @@ test('skill evidence aggregates scores independently', () => {
   assert.equal(algebra.score, 100);
 });
 
-test('assessment result updates persistent skill mastery and returns weak skills', async () => {
+test('assessment result updates skill mastery and topic mastery from quiz evidence', async () => {
   const rows = new Map();
+  const topicRows = new Map();
+  const evidenceRows = [];
   const db = {
     async query(sql, params) {
       if (sql.startsWith('SELECT mastery')) {
         const row = rows.get(params[2]);
         return { rows: row ? [row] : [] };
+      }
+      if (sql.startsWith('INSERT INTO assessment_evidence')) {
+        evidenceRows.push({ assessmentId: params[2], topic: params[5], score: params[6], attempts: params[7] });
+        return { rows: [] };
+      }
+      if (sql.startsWith('INSERT INTO topic_mastery')) {
+        const key = `${params[2]}:${params[3]}`;
+        const existing = topicRows.get(key);
+        const mastery = existing ? Math.round((existing.mastery * 0.7 + Number(params[4]) * 0.3) * 100) / 100 : Number(params[4]);
+        const row = { id: `topic-${topicRows.size + 1}`, subject: params[2], topic: params[3], mastery, evidence_count: (existing?.evidence_count || 0) + Number(params[5]), updated_at: new Date() };
+        topicRows.set(key, row);
+        return { rows: [row] };
       }
       const skill = params[2];
       const row = {
@@ -70,7 +84,9 @@ test('assessment result updates persistent skill mastery and returns weak skills
   const result = await applyAssessmentResult(db, {
     tenantId: 'tenant-1',
     studentId: 'student-1',
+    assessmentId: 'assessment-1',
     lessonId: 'lesson-1',
+    subject: 'Math',
     questions: [
       { skill: 'fractions', difficulty: 0.3, answer_index: 0 },
       { skill: 'fractions', difficulty: 0.3, answer_index: 0 },
@@ -83,4 +99,8 @@ test('assessment result updates persistent skill mastery and returns weak skills
   assert.ok(result.weakSkills.includes('fractions'));
   assert.equal(rows.get('fractions').attempts, 2);
   assert.equal(rows.get('algebra').attempts, 1);
+  assert.equal(evidenceRows.length, 2);
+  assert.equal(evidenceRows.find(x => x.topic === 'fractions').score, 0);
+  assert.equal(topicRows.get('student-1:fractions').mastery, 0);
+  assert.equal(topicRows.get('student-1:algebra').mastery, 100);
 });
