@@ -67,7 +67,6 @@ test('real commercial journey: teacher → student → assessment → mastery �
   let assessmentId;
 
   try {
-    // 1. Teacher registers, verifies email, and logs in.
     teacher = await register(base, 'teacher', 'E2E Teacher');
     const teacherLogin = await request(base, '/api/auth/login', {
       method: 'POST',
@@ -76,7 +75,6 @@ test('real commercial journey: teacher → student → assessment → mastery �
     assert.equal(teacherLogin.response.status, 200, JSON.stringify(teacherLogin.data));
     const teacherCookie = cookieFrom(teacherLogin.response);
 
-    // 2. Teacher creates a real course and lesson, attaches the lesson, then publishes both.
     const courseResult = await request(base, '/api/courses', {
       cookie: teacherCookie,
       method: 'POST',
@@ -124,7 +122,6 @@ test('real commercial journey: teacher → student → assessment → mastery �
     });
     assert.equal(publishCourse.response.status, 200, JSON.stringify(publishCourse.data));
 
-    // 3. Create a student account, move it into the teacher tenant for this isolated E2E fixture, then log in.
     student = await register(base, 'student', 'E2E Student');
     studentOriginalTenantId = student.user.tenant_id;
     await query('UPDATE users SET tenant_id=$1 WHERE id=$2', [teacher.user.tenant_id, student.user.id]);
@@ -136,7 +133,6 @@ test('real commercial journey: teacher → student → assessment → mastery �
     assert.equal(studentLogin.response.status, 200, JSON.stringify(studentLogin.data));
     const studentCookie = cookieFrom(studentLogin.response);
 
-    // 4. Student enrolls and can see the published lesson through the real course API.
     const enrollment = await request(base, `/api/courses/${courseId}/enroll`, {
       cookie: studentCookie,
       method: 'POST',
@@ -149,8 +145,6 @@ test('real commercial journey: teacher → student → assessment → mastery �
     assert.equal(courseLessons.data.lessons.length, 1);
     assert.equal(courseLessons.data.lessons[0].id, lessonId);
 
-    // 5. Seed one real assessment record. Assessment generation itself is an AI boundary and is deliberately
-    // not called here because CI has no paid OpenAI credential. Submission is the real production endpoint.
     const questions = {
       questions: [
         { question: 'What is a fraction?', answer_index: 0, explanation: 'A fraction represents parts of a whole.' },
@@ -169,7 +163,6 @@ test('real commercial journey: teacher → student → assessment → mastery �
     assert.equal(assessmentList.data.assessments.length, 1);
     assert.equal(assessmentList.data.assessments[0].id, assessmentId);
 
-    // 6. Student submits the assessment. This must drive progress + adaptive evidence + topic mastery.
     const submission = await request(base, `/api/assessments/${assessmentId}/submit`, {
       cookie: studentCookie,
       method: 'POST',
@@ -184,27 +177,21 @@ test('real commercial journey: teacher → student → assessment → mastery �
     assert.ok(Array.isArray(submission.data.adaptive.topicMastery));
     assert.ok(submission.data.adaptive.topicMastery.length >= 1);
 
-    // 7. Verify mastery and recommendation APIs consume the state created by the assessment.
     const mastery = await request(base, '/api/learning/mastery', { cookie: studentCookie });
     assert.equal(mastery.response.status, 200, JSON.stringify(mastery.data));
-    assert.ok(Array.isArray(mastery.data.topic_mastery));
-    assert.ok(mastery.data.topic_mastery.length >= 1);
+    assert.ok(Array.isArray(mastery.data.topics));
+    assert.ok(Array.isArray(mastery.data.skills));
+    assert.ok(mastery.data.topics.length >= 1);
 
     const recommendations = await request(base, '/api/learning/recommendations', { cookie: studentCookie });
     assert.equal(recommendations.response.status, 200, JSON.stringify(recommendations.data));
     assert.ok(Array.isArray(recommendations.data.recommendations));
     assert.ok(recommendations.data.recommendations.some(item => item.lesson.id === lessonId));
 
-    // 8. Reach the real lesson-aware grounded tutor. Without an OpenAI key in CI it must stop safely at
-    // the AI boundary while still returning grounded lesson citations. No fake answer is accepted.
     const tutor = await request(base, '/api/tutor/grounded', {
       cookie: studentCookie,
       method: 'POST',
-      body: {
-        message: 'What are fractions?',
-        courseId,
-        lessonId,
-      },
+      body: { message: 'What are fractions?', courseId, lessonId },
     });
     assert.equal(tutor.response.status, 503, JSON.stringify(tutor.data));
     assert.equal(tutor.data.error, 'خدمة الذكاء الاصطناعي غير مهيأة.');
