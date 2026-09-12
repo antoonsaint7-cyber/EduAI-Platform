@@ -71,10 +71,27 @@ async function applyAssessmentResult(db, {
   if (!db || typeof db.query !== 'function') throw new TypeError('A database client with query() is required');
   if (!tenantId || !studentId) throw new TypeError('tenantId and studentId are required');
 
-  const graded = gradeAssessmentQuestions(questions, answers);
+  const safeQuestions = Array.isArray(questions) ? questions : [];
+  const safeAnswers = Array.isArray(answers) ? answers : [];
+  const graded = gradeAssessmentQuestions(safeQuestions, safeAnswers);
   const evidence = aggregateSkillEvidence(graded);
   const updated = [];
   const topicMastery = [];
+  let attempt = null;
+
+  if (assessmentId) {
+    const correctAnswers = graded.filter(item => item.correct).length;
+    const totalQuestions = safeQuestions.length;
+    const score = totalQuestions ? Math.round((correctAnswers / totalQuestions) * 10000) / 100 : 0;
+    const attemptResult = await db.query(
+      `INSERT INTO assessment_attempts
+        (tenant_id,assessment_id,student_id,lesson_id,score,correct_answers,total_questions,answers)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb)
+       RETURNING id,assessment_id,student_id,lesson_id,score,correct_answers,total_questions,submitted_at`,
+      [tenantId, assessmentId, studentId, lessonId, score, correctAnswers, totalQuestions, JSON.stringify(safeAnswers.slice(0, safeQuestions.length))],
+    );
+    attempt = attemptResult.rows[0] || null;
+  }
 
   for (const item of evidence) {
     const existing = await db.query(
@@ -134,6 +151,7 @@ async function applyAssessmentResult(db, {
   })));
 
   return {
+    attempt,
     graded,
     evidence,
     updated,
